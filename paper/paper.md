@@ -18,14 +18,14 @@ make the rule class generalise beyond memorisation:
    values never seen in training;
 3. a **compression gate** that rejects rules which do not compress the observed changes.
 
-We also **meta-learn the DL prior over features** from the public training set, validated with
-cross-validation.
+We also test two ideas that did *not* help, and report them as negative results:
+meta-learning the DL prior over features, and averaging predictions over all consistent rules.
 
 Our main contribution is diagnostic. We separate *expressibility* (a compact rule exists, found by
 an oracle that also sees the test outputs) from *learnability* (the rule is recovered from the
 training pairs alone). On the 1,000 ARC-AGI-2 training tasks, compact local rules express
-**RESULT_EXPR_TRAIN** tasks, and the solver learns **RESULT_LEARN_RATE** of those. On the 120
-public evaluation tasks, the same rule class expresses **only RESULT_EXPR_EVAL**. The ARC-AGI-2
+**187** tasks (18.7%), and the solver learns **126 of those (67%)** from the demonstrations alone. On the 120
+public evaluation tasks, the same rule class expresses **only 2 (1.7%)**, and neither is learned. The ARC-AGI-2
 evaluation set is therefore not merely harder to *learn*: it is almost entirely outside the
 *expressible* region of per-cell rules, even with a rich feature bank and grid-level context. We
 use this to argue, quantitatively, where program-synthesis research effort should go.
@@ -128,11 +128,105 @@ estimated from the tasks it is evaluated on.
 
 ## 3. Experiments
 
-RESULTS_SECTION
+All numbers come from `run_experiments.sh` on 4 CPU cores. The time limits are 20 s per task on
+training and 30 s on evaluation. The full training run takes about 4 minutes. A task's score is
+the fraction of its test outputs matched exactly by one of the two attempts.
+
+### 3.1 Accuracy
+
+| System | ARC-AGI-2 training (1,000) | ARC-AGI-2 public eval (120) |
+|---|---|---|
+| Transforms + local rules (full) | 135.5 (13.6%) | 0 (0.0%) |
+| … + learned feature prior | 135.5 (13.6%, 2-fold CV) | 0 (0.0%) |
+
+The ARC-AGI-2 training set contains most of ARC-AGI-1, and the solver solves 13.6% of it. It
+solves nothing on the public evaluation set. Precision on training correlates strongly with rule
+size. Rules with ≤5 table entries are right on 40.5 of the 47 tasks where they are chosen. Rules
+with ≤20 entries are right on 72 of 127. Rules with >40 entries are right on only 5 of 233,
+which is what motivates the compression gate.
+
+### 3.2 Expressibility vs. learnability (main result)
+
+For each task we run the same machinery with the **test outputs included as training pairs**
+(the oracle) and ask whether a rule with ≤40 table entries, or an exact transform, reproduces
+every pair.
+
+| | Training (1,000) | Public eval (120) |
+|---|---|---|
+| Output shape reachable by some transform | 817 (81.7%) | 89 (74.2%) |
+| **Expressible** (exact transform or compact rule) | **187 (18.7%)** | **2 (1.7%)** |
+| … of which exact transforms | 32 | 0 |
+| Solved from train pairs alone | 137 | 0 |
+| **Learned ∣ expressible** | **126 / 187 (67%)** | 0 / 2 |
+
+Three observations:
+
+1. **On ARC-AGI-2 evaluation, the representation gap dominates.** 89 of 120 tasks have output
+   grids of the right *shape* after some transform. Yet per-cell rules over ~70 features (local,
+   geometric, object-level and grid-context) express only two of them. Even these two need
+   24–32 table entries, close to the gate: they are near-memorisations, not concise laws. The
+   ARC-AGI-1-style mechanisms (recolour by property, fill by enclosure, symmetry completion,
+   panel overlays) are essentially absent from the new evaluation set.
+2. **On ARC-AGI-1-style tasks, the induction gap is moderate.** Given an expressible task, MDL
+   selection from 2–5 demonstrations picks a correct rule 67% of the time. Inspecting the
+   failures shows two kinds. In the first, the oracle's rule is *coincidental*: object size
+   happens to separate the test classes, while the true cause is the shape of a key object.
+   In the second, the test contains feature values outside the training range. The first kind
+   motivated the grid-context features, the second the interval interpolation.
+3. **Learnability improvements do not transfer.** Every component that raised training accuracy
+   left evaluation accuracy at exactly zero, because it acts inside a region that the evaluation
+   tasks do not occupy.
+
+### 3.3 Ablations (training set, 1,000 tasks)
+
+| Removed component | Score | Δ |
+|---|---|---|
+| none (full) | 135.5 | — |
+| `keep` target encoding | 122.0 | −13.5 |
+| `copy-from-feature` target encoding | 128.5 | −7.0 |
+| grid-context features | 132.0 | −3.5 |
+| interval interpolation | 133.5 | −2.0 |
+| compression gate | 135.5 | 0.0 |
+| Bayesian model averaging (keep only the min-DL rule) | 136.0 | **+0.5** |
+
+The **target encodings are the most important design choice**. Letting a rule output "unchanged"
+or "copy the colour of feature *f*" makes most tables small and colour-invariant. That is
+exactly the kind of generalisation the demonstrations cannot show directly. The compression gate
+does not change accuracy by design, since it only re-ranks candidates; its value is calibration.
+Model averaging brings no benefit: identical predictions from many near-duplicate rules
+(e.g. `c` vs. `col_rank`) inflate their total weight without adding independent evidence.
+
+### 3.4 Learned feature prior (negative result)
+
+Replacing the uniform per-feature cost with −log p(f), estimated from the oracle rules of the
+other fold, leaves the score *exactly* unchanged on both folds: 67.5 → 67.5 and 68.0 → 68.0. The
+reason is structural. Rule DL is dominated by the table size |table|. Feature costs differ by
+less than one table entry (0.8 for `c` up to 2.5 for rare features), so they only break ties
+between rules of equal table size. Such ties almost always predict the same test output.
 
 ## 4. Discussion
 
-DISCUSSION_SECTION
+**Where should effort go?** Our measurements give a concrete answer for symbolic ARC solvers.
+Better priors, averaging and interpolation over a *per-cell* hypothesis class buy a few points on
+ARC-AGI-1-style tasks and nothing on ARC-AGI-2. The ARC-AGI-2 evaluation tasks sit outside the
+class: 87 of 89 shape-reachable tasks cannot be written as a compact function of any
+cell-local or grid-context feature set we tried. To make progress, a solver must change the
+*unit* of the rule. It needs rules over objects and their relations (which object goes where,
+matched by shape up to symmetry), rules that apply other rules conditionally, and rules whose
+output geometry is computed rather than copied.
+
+**A diagnostic, not only a solver.** The expressible/learnable split is cheap to compute: about
+4 minutes on a CPU for 1,000 tasks. It can be run on any rule or program class for which an
+oracle fit exists. We suggest that ARC method papers report both numbers, because they separate
+two claims that are usually conflated: "my representation can describe these tasks" and "my
+inference procedure finds the description from few examples". For example, an LLM-based
+program synthesiser can be evaluated by (a) whether a program exists in its sampling
+distribution that fits train+test, and (b) whether it is selected from train alone.
+
+**Honest scope.** A 13.6% training score is far below neural test-time-training systems. The
+contribution is the measurement, together with a fast, fully interpretable baseline whose every
+prediction comes with a human-readable rule (for example
+`keep-unless-changed on [enclosed] (2 entries)` for "fill enclosed regions").
 
 ## 5. Limitations
 
