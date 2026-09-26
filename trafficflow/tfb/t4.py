@@ -105,12 +105,21 @@ def s_link(A, c, f):
     return max(0.0, 1 - np.abs(A @ f - c).sum() / c.sum())
 
 
+def geo_prior(panel: str) -> np.ndarray:
+    """Geometric mean of the three splits' priors (a shared base if split noise is independent)."""
+    return np.exp(np.mean([np.log(np.maximum(problem(panel, s)[2], 1e-6))
+                           for s in ("train", "validation", "private")], 0))
+
+
 def build(method: str = "l2", splits=("validation", "private")) -> pd.DataFrame:
     out = []
     for p in panels():
         for s in splits:
             A, c, b, prior = problem(p, s)
-            f = METHODS[method](A, c, b)
+            if method.startswith("geo_"):
+                f = METHODS[method[4:]](A, c, geo_prior(p))
+            else:
+                f = METHODS[method](A, c, b)
             f = np.where(np.isfinite(f), np.maximum(f, 0), 0)
             print(f"{p:11s} {s:10s} {method}: S_link={s_link(A, c, f):.5f} "
                   f"dev/prior={np.abs(f - b).sum() / b.sum():.3f} sum f/b={f.sum() / b.sum():.3f}", flush=True)

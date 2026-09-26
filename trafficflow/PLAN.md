@@ -77,6 +77,10 @@ Findings
 Next
 1. T4 probes, one per day alongside other changes: `sl2` (prior rescaled, then L2), `wl2`
    (chi-square), and L2 on the geometric mean of the three splits' priors.
-2. T1: retrain on all train days with more rows, and add gap rows to the main model. Also consider a
-   direct density (q/v) model to help S_LWR.
+2. T1: retrain on all train days with more rows (`python -m tfb.t1_full`, running as of this note),
+   then apply the gap patch.
+   Tried and dropped: a direct L1 density model (flow = k·v, or a 50/50 mix). Its local S_LWR proxy
+   (`tfb/t3_proxy.py`) moves by at most ±0.006, and 0.35·S_state + 0.1·S_LWR is unchanged within
+   ±0.0015. S_LWR follows T1 accuracy: interp ≈ 0.52 and LightGBM ≈ 0.60, averaged over regimes.
+   Probe files are ready in `out/tfb/`: `odme_sl2.csv`, `odme_wl2.csv`, `odme_geo_l2.csv`.
 3. T2: tune the decoding, and add ramp-flow and upstream-demand features to the onset model.
