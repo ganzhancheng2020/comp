@@ -84,3 +84,31 @@ Next
    ±0.0015. S_LWR follows T1 accuracy: interp ≈ 0.52 and LightGBM ≈ 0.60, averaged over regimes.
    Probe files are ready in `out/tfb/`: `odme_sl2.csv`, `odme_wl2.csv`, `odme_geo_l2.csv`.
 3. T2: tune the decoding, and add ramp-flow and upstream-demand features to the onset model.
+
+## Local ↔ online calibration (every change is checked against a leaderboard delta)
+
+Local evaluators
+* T1: `tfb/score.py` on held-out train days (d % 4 == 0), same formula as `score_task1.py`.
+* T2: `tfb/t2_eval.py` scores the windows the organizers actually selected in train (5 onset +
+  5 ongoing per corridor). Truth is the observed speed ≤ 0.6·v_free, only eligible cells count, and
+  aggregation follows `score_task2.py`. Models are trained 2-fold by day parity.
+  An earlier evaluator that used all mined onset events did **not** match the leaderboard, because
+  the selector's window distribution is different.
+* T3: `tfb/t3_proxy.py` (S_LWR ≈ 1 − Σ|ΔN_pred − ΔN_true|/Σ|ΔN_true|). Only relative changes are
+  meaningful; the absolute level is not calibrated yet.
+
+| Change | Local predicted Δtotal | Online Δtotal |
+|---|---|---|
+| v1→v2 (onset static set) | +0.105 (S_queue 0.39→0.74) | +0.113 |
+| v2→v3 (T1 LightGBM, T2 models, with gap bug) | +0.041 (T2 +0.028, T1 +0.012, phys ≈ +0.008, gap bug −0.007) | +0.0375 |
+| v3→v4 (gap specialist) | +0.0069 | +0.0069 |
+
+Local T2 (v3/v4): S_queue 0.833 (onset 0.828, ongoing 0.838). Only 40 windows per condition, so the
+standard error is about 0.04; improvements under ~0.02 need the leaderboard.
+
+Submission plan for the next day (5/day, resets 00:00 UTC). Each probe changes one factor only.
+1. v5 = v4 + full-train T1 model (`state_lgbfull_gap.csv`), for T1 transfer.
+2. Probe: v4 with every queue_pred = 0 → gives the online S_queue(v4) exactly
+   (S_queue = Δ/0.30), which calibrates the local 0.833.
+3–5. T4 probes on top of the best: `odme_sl2`, `odme_wl2`, `odme_geo_l2`. Each changes only S_ODME,
+   so ΔS_ODME = Δ/0.20.
