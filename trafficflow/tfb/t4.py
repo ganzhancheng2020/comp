@@ -98,7 +98,23 @@ def solve_wl2(A, c, b):
     return np.maximum(0.0, b * (1 + An.T @ r.x))
 
 
-METHODS = {"ridge": solve_ridge, "l2": solve_l2, "kl": solve_kl, "skl": solve_skl, "sl2": solve_sl2, "wl2": solve_wl2}
+def solve_plen_l2(A, c, b):
+    """min sum n_p (f_p - b_p)^2 s.t. Af=c, f>=0 (n_p = measured links on path p):
+    f = max(0, b + A^T lam / n_p), i.e. a per-path shift that does not grow with path length."""
+    s = np.maximum(A.sum(1), 1)
+    An = A / s[:, None]
+    cn = c / s
+    w = np.maximum(A.sum(0), 1)
+
+    def dual(lam):
+        f = np.maximum(0.0, b + (An.T @ lam) / w)
+        return 0.5 * np.sum(w * f * f) - cn @ lam, An @ f - cn
+    r = minimize(dual, np.zeros(A.shape[0]), jac=True, method="L-BFGS-B",
+                 options={"maxiter": 50000, "gtol": 1e-10, "ftol": 1e-16, "maxcor": 50})
+    return np.maximum(0.0, b + (An.T @ r.x) / w)
+
+
+METHODS = {"ridge": solve_ridge, "l2": solve_l2, "kl": solve_kl, "skl": solve_skl, "sl2": solve_sl2, "wl2": solve_wl2, "plen_l2": solve_plen_l2}
 
 
 def s_link(A, c, f):

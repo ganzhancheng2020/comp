@@ -110,5 +110,13 @@ Submission plan for the next day (5/day, resets 00:00 UTC). Each probe changes o
 1. v5 = v4 + full-train T1 model (`state_lgbfull_gap.csv`), for T1 transfer.
 2. Probe: v4 with every queue_pred = 0 → gives the online S_queue(v4) exactly
    (S_queue = Δ/0.30), which calibrates the local 0.833.
-3–5. T4 probes on top of the best: `odme_sl2`, `odme_wl2`, `odme_geo_l2`. Each changes only S_ODME,
-   so ΔS_ODME = Δ/0.20.
+3–5. T4 probes on top of the best, each testing one hypothesis (ΔS_ODME = Δ/0.20):
+   `odme_sl2` (rescale, then L2: is zeroing small ODs good?), `odme_plen_l2` (per-path shift that does
+   not grow with path length: is the prior noise additive per path?), and `odme_geo_l2` (pooled prior
+   across splits: is the truth closer to the shared structure?).
+
+T4 proxy that was rejected: "similarity to another split's prior". It ranks KL above L2
+(0.638 vs 0.592), which contradicts the leaderboard (L2 beats KL by ~0.15 S_ODME). So the truth is not
+the structure the priors share; it is sparser and more concentrated, and T4 can only be judged online.
+Log prior = gravity fit (R² 0.75) + residual with sd 0.6. The residuals of different splits'
+priors are uncorrelated (≈0.03).
