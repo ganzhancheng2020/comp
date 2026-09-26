@@ -25,6 +25,9 @@ Goal: find AI competitions this project can realistically enter, build the entri
 | AI Cup 2026 (Kaggle, NL) | €7k | — | No. Students/recent graduates of NL programs only | Ineligible |
 | CCF BDCI 2026 | ¥20k / ¥10k / ¥5k per topic | Prelims Aug–Oct | Unlikely. Finals are in October | Probably closed |
 | iFLYTEK AI Developer Contest 2026 | Varies per topic (often ¥10k–¥50k) | Rolling | Only if you download the data and add it to the repo, or widen network access | **Best secondary option** |
+| **IEEE Big Data Cup 2026 – TrafficFlowBench** (Kaggle) | $1,500 / $1,000 / $500 + $500 student, per division | 2026-11-06 | Yes, **if Kaggle access is enabled**. Tabular + traffic physics, CPU-friendly, about 179 teams, open-source solutions at 0.845–0.867 public LB to build on | **Best secondary target** |
+| IEEE Big Data Cup 2026 – AI Emulation (CarbonGlobe, Kaggle) | $1,500 / $1,000 / $500 + $500 student, per division | 2026-11-06 | Only with Kaggle access; large dataset; about 65 teams | Tertiary |
+| IEEE Big Data Cup 2026 – FinReason Cup | **No cash prizes** (certificates only) | 10-15 | Data is on GitHub | Skip: no money |
 | Devpost AI hackathons (various) | Often gift cards or small cash | Rolling | Possible, but they need a demo video and your account | Opportunistic |
 
 ## Chosen plan
@@ -38,9 +41,13 @@ Goal: find AI competitions this project can realistically enter, build the entri
    * `kaggle/arc_mdl_rules.ipynb` is the self-contained offline notebook for the Kaggle
      code submission.
    * `paper/` holds the write-up for the Paper Track.
-2. **Secondary:** once network access to `challenge.xfyun.cn` / `kaggle.com` is allowed, or the data is
-   committed to the repo, pick 1–2 iFLYTEK algorithm topics with small fields and tabular or NLP
-   data, where CPU-only gradient boosting can place.
+2. **Secondary: TrafficFlowBench** (IEEE Big Data Cup 2026, deadline Nov 6). The official
+   toolkit (`github.com/jacky850/trafficflowbench-public`) and strong open-source entries are
+   reachable, but the data is only on Kaggle. With Kaggle access plus an API token, the whole
+   loop runs from a session: download, train, validate on the train months, and submit with
+   `kaggle competitions submit`.
+3. **Tertiary:** iFLYTEK algorithm topics (requires `challenge.xfyun.cn` access or manually
+   committed data).
 
 ## What you need to do (the steps that cannot be automated from here)
 
@@ -50,9 +57,14 @@ Goal: find AI competitions this project can realistically enter, build the entri
    turn internet off, click *Submit*. Note the submission ID.
 3. Submit the paper from `paper/` on the Paper Track, linked to that code submission, by
    **2026-11-02**. Make this GitHub repository public, because prize eligibility requires open source.
-4. Optional: in the cloud environment settings, add `kaggle.com`, `www.kaggle.com`,
-   `storage.googleapis.com`, `huggingface.co` and `challenge.xfyun.cn` to the allowed domains
-   so future sessions can pull data and iterate directly.
+4. **Unlock TrafficFlowBench (highest-value step):** join
+   `kaggle.com/competitions/2026-ieee-big-data-traffic-flow-bench` and accept its rules. Then, in
+   the cloud environment settings (environment menu in the session title bar → Edit):
+   * add `kaggle.com`, `www.kaggle.com` and `storage.googleapis.com` to the allowed network domains;
+   * add environment variables `KAGGLE_USERNAME` and `KAGGLE_KEY`, from Kaggle → Settings →
+     API → Create New Token. Do **not** paste the token into chat.
+
+   A new session then picks these up and can build and submit the entry end to end.
 
 ## Honest odds
 
