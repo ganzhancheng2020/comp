@@ -275,3 +275,104 @@ def apply(fn, a):
     if r is None or r.ndim != 2 or r.size == 0 or r.shape[0] > 30 or r.shape[1] > 30:
         return None
     return np.ascontiguousarray(r)
+
+
+# --- Regularity repair: make the input exactly symmetric / periodic. ---
+
+def _best_axis(mask, axis):
+    """Mirror axis (as r0+r1 sum, i.e. doubled coordinate) maximising self-overlap."""
+    idx = np.nonzero(mask)[axis]
+    lo, hi = idx.min(), idx.max()
+    best, best_s = None, -1
+    for s in range(2 * lo, 2 * hi + 1):
+        m = _mirror(mask, axis, s)
+        ov = (m & mask).sum()
+        if ov > best_s:
+            best, best_s = s, ov
+    return best
+
+
+def _mirror(mask, axis, s):
+    out = np.zeros_like(mask)
+    rr, cc = np.nonzero(mask)
+    if axis == 0:
+        rr = s - rr
+    else:
+        cc = s - cc
+    ok = (rr >= 0) & (rr < mask.shape[0]) & (cc >= 0) & (cc < mask.shape[1])
+    out[rr[ok], cc[ok]] = True
+    return out
+
+
+def _sym_repair(axis, mode):
+    def fn(a):
+        bg = background(a)
+        out = np.full_like(a, bg)
+        changed = False
+        for c in np.unique(a):
+            if c == bg:
+                continue
+            mask = a == c
+            s = _best_axis(mask, axis)
+            m = _mirror(mask, axis, s)
+            new = (mask & m) if mode == "and" else (mask | m)
+            if mode == "or":
+                new &= (a == bg) | mask
+            changed |= bool((new != mask).any())
+            out[new] = c
+        return out if changed else None
+    return fn
+
+
+for ax, tag in ((1, "v"), (0, "h")):
+    for mode in ("and", "or"):
+        T(f"sym_repair_{tag}_{mode}", 1.5)(_sym_repair(ax, mode))
+
+
+def _period_fix_line(line, max_err=0.25):
+    """Return line with its dominant periodic pattern enforced (or None)."""
+    n = len(line)
+    best = None
+    for trim in range(0, 4):
+        seg = line[trim:n - trim] if trim else line
+        m = len(seg)
+        for p in range(1, m // 2 + 1):
+            if m < 3 * p:
+                break
+            fixed = seg.copy()
+            err = 0
+            for r in range(p):
+                vals = seg[r::p]
+                bc = np.bincount(vals, minlength=10)
+                maj = bc.argmax()
+                if bc[maj] * 2 <= len(vals) and len(vals) > 2:
+                    err = m
+                    break
+                err += len(vals) - bc[maj]
+                fixed[r::p] = maj
+            if err > max_err * m:
+                continue
+            key = (round(err / m, 3), -m, p)  # lowest error rate, then widest coverage, then shortest period
+            if best is None or key < best[0]:
+                full = line.copy()
+                full[trim:n - trim if trim else n] = fixed
+                best = (key, full)
+            break  # shortest valid period for this trim
+    return None if best is None else best[1]
+
+
+def _period_repair(axis):
+    def fn(a):
+        b = a if axis == 1 else a.T
+        out = b.copy()
+        for i in range(b.shape[0]):
+            f = _period_fix_line(b[i])
+            if f is not None:
+                out[i] = f
+        out = out if axis == 1 else out.T
+        return out if (out != a).any() else None
+    return fn
+
+
+T("period_repair_rows", 1.5)(_period_repair(1))
+T("period_repair_cols", 1.5)(_period_repair(0))
