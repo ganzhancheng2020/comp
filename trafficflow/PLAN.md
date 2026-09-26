@@ -43,3 +43,40 @@
    features only ≤ T, and decode to maximise expected IoU.
 5. Submit a baseline early (day 1), then iterate within the daily limit. Fit on train only and
    treat the public LB as a transfer check, since validation and private are different months.
+
+## Progress (2026-09-26)
+
+Code: `trafficflow/tfb/` (run from `trafficflow/`, data in `data_tfb/kaggle_public`, official toolkit
+cloned to `tfb_ref/`). Kaggle CLI auth: `export KAGGLE_API_TOKEN=$KAGGLE_KEY` (the key is a new-style token).
+
+| Sub | T1 | T2 | T4 | Public LB |
+|---|---|---|---|---|
+| v1 | temporal linear interp | persistence | L2 projection | 0.70508 |
+| v1-kl | same | same | KL (max-entropy) projection | 0.67482 |
+| v2 | interp | onset: static link set at T+30; ongoing: persistence | L2 | 0.81819 |
+| v3 | LightGBM residual | onset + ongoing LightGBM, expected-IoU decoding | L2 | 0.85566 |
+| v4 | v3 + gap-specialist model on T2 blackout slots | same | L2 | 0.86257 |
+
+Findings
+* T1: speed noise is ~1.7 km/h and flow noise ~30 vph/lane, so interp already scores 0.909 locally.
+  The LightGBM residual reaches 0.943 locally (`python -m tfb.t1_model`, then `python -m tfb.t1_train`).
+* Validation/private have 90-min all-link blackouts after each T2 origin (1.7% of targets); train has
+  none. The main model is off-distribution there (flow RMSE 384/lane). A specialist trained on
+  synthetic gaps placed at onset/ongoing origins (`tfb/t1_gaps.py`, `tfb/patch_gaps.py`) fixes it.
+* T2 onset: in every train onset window the queue first appears exactly at T+30, on a few recurring
+  bottleneck links per corridor. So onset reduces to choosing links at the last step. Mining every
+  onset event in train (about one per day per corridor) gives held-out onset IoU 0.56 (static set)
+  and 0.67 (conditional model).
+* T2 ongoing: a per-cell model over the six steps × links near the queue gives held-out IoU 0.81
+  against 0.67 for persistence, on windows with persistence IoU ≤ 0.9, as the selector uses.
+* T3: organizer fluxes reproduce the published observations, so S_LWR ≈ 1 − Σ|ΔN error|/Σ|ΔN_true|.
+  Only the L1 error of density q/v at target cells matters, and white measurement noise floors it.
+* T4: L2 beats KL by 0.15 S_ODME. The official ridge baseline is effectively the L2 projection.
+  Priors across splits correlate ~0.75, which looks like lognormal noise around a shared base.
+
+Next
+1. T4 probes, one per day alongside other changes: `sl2` (prior rescaled, then L2), `wl2`
+   (chi-square), and L2 on the geometric mean of the three splits' priors.
+2. T1: retrain on all train days with more rows, and add gap rows to the main model. Also consider a
+   direct density (q/v) model to help S_LWR.
+3. T2: tune the decoding, and add ramp-flow and upstream-demand features to the onset model.
