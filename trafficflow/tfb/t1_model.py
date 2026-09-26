@@ -66,3 +66,13 @@ if __name__ == "__main__":
         print(p, round(time.time() - t0), "s", flush=True)
     pd.concat(tr, ignore_index=True).to_parquet(CACHE / "t1_tr.parquet")
     pd.concat(va, ignore_index=True).to_parquet(CACHE / "t1_va.parquet")
+
+
+def predict_split(models: dict, panel: str, split: str):
+    """(speed, flow) for the template rows of panel/split, in template order."""
+    df = panel_frame(panel, split, with_truth=False)
+    X = df[feat_cols(df)]
+    s = df.speed_lin.to_numpy() + models["speed"].predict(X, num_threads=4)
+    f = df.flow_lin.to_numpy() + models["flow"].predict(X, num_threads=4) * df.lanes.to_numpy()
+    order = np.argsort(df.row.to_numpy())
+    return np.clip(s[order], 1.0, None), np.clip(f[order], 0.0, None)

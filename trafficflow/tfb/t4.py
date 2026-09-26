@@ -78,7 +78,27 @@ def solve_skl(A, c, b):
     return solve_kl(A, c, b * scale)
 
 
-METHODS = {"ridge": solve_ridge, "l2": solve_l2, "kl": solve_kl, "skl": solve_skl}
+def solve_sl2(A, c, b):
+    """L2 projection of the prior after one scalar rescale fitted to the counts."""
+    lb = A @ b
+    return solve_l2(A, c, b * float(np.sum(c * lb) / max(np.sum(lb * lb), 1e-9)))
+
+
+def solve_wl2(A, c, b):
+    """Chi-square projection min sum (f-b)^2 / b: f = max(0, b (1 + A^T lam))."""
+    s = np.maximum(A.sum(1), 1)
+    An = A / s[:, None]
+    cn = c / s
+
+    def dual(lam):
+        f = np.maximum(0.0, b * (1 + An.T @ lam))
+        return 0.5 * np.sum(f * f / np.maximum(b, 1e-12)) - cn @ lam, An @ f - cn
+    r = minimize(dual, np.zeros(A.shape[0]), jac=True, method="L-BFGS-B",
+                 options={"maxiter": 50000, "gtol": 1e-10, "ftol": 1e-16, "maxcor": 50})
+    return np.maximum(0.0, b * (1 + An.T @ r.x))
+
+
+METHODS = {"ridge": solve_ridge, "l2": solve_l2, "kl": solve_kl, "skl": solve_skl, "sl2": solve_sl2, "wl2": solve_wl2}
 
 
 def s_link(A, c, f):
