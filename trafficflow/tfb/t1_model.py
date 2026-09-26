@@ -44,7 +44,7 @@ def add_gaps(z: dict, origins) -> tuple[dict, np.ndarray]:
 
 
 def panel_frame(panel: str, split: str, day_filter=None, max_rows: int | None = None, seed: int = 0,
-                with_truth: bool = True, gaps: bool = False, row_filter=None) -> pd.DataFrame:
+                with_truth: bool = True, gaps: bool = False, row_filter=None, ramps: bool = False) -> pd.DataFrame:
     z = load(panel, split)
     t = targets(panel, split, z)
     if gaps:
@@ -68,7 +68,7 @@ def panel_frame(panel: str, split: str, day_filter=None, max_rows: int | None = 
         zc = {k: (v[d0:d0 + CHUNK] if isinstance(v, np.ndarray) and v.ndim == 3 or k in ("dates", "regime") else v)
               for k, v in z.items()}
         idx = (tt.d.to_numpy() - d0, tt.t.to_numpy(), tt.l.to_numpy())
-        X = build(panel, zc, idx, prof)
+        X = build(panel, zc, idx, prof, ramps=ramps)
         X["d"], X["t"], X["l"] = tt.d.to_numpy(), tt.t.to_numpy(), tt.l.to_numpy()
         X["regime"] = tt.mask_regime.to_numpy()
         X["row"] = tt.index.to_numpy()

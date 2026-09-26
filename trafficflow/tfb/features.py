@@ -6,7 +6,7 @@ import pandas as pd
 
 import warnings
 
-from .data import CACHE, load, network
+from .data import CACHE, REL, load, network
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -66,7 +66,26 @@ def profile(panel: str) -> dict[str, np.ndarray]:
     return out
 
 
-def build(panel: str, z: dict, idx: tuple, prof: dict | None = None) -> pd.DataFrame:
+def ramp_link_flows(panel: str, z: dict, net: pd.DataFrame):
+    """Sum of attached on-/off-ramp flows per mainline link, (D, T, L); NaN if any attached ramp is
+    missing or below 75% observed, 0 where no ramp of that type is attached."""
+    li = {x: i for i, x in enumerate(net.link_id)}
+    rmap = pd.read_csv(REL / "corridors" / panel / "network" / "ramp_attachment_map.csv", dtype=str)
+    rid = {x: i for i, x in enumerate(z["ramps"].tolist())}
+    D, T = z["m_flow"].shape[:2]
+    L = len(net)
+    on = np.zeros((D, T, L), np.float32)
+    off = np.zeros((D, T, L), np.float32)
+    rf = np.where(z["ramp_pct"] >= 75, z["ramp_flow"], np.nan)
+    for r in rmap.itertuples():
+        if r.nearest_mainline_link_id not in li or r.ramp_link_id not in rid:
+            continue
+        tgt = on if r.ramp_type.upper() in ("OR", "ON") else off
+        tgt[:, :, li[r.nearest_mainline_link_id]] += rf[:, :, rid[r.ramp_link_id]]
+    return on, off
+
+
+def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool = False) -> pd.DataFrame:
     """Features for cells idx = (d, t, l) arrays. z holds the masked arrays of the split."""
     d, t, l = idx
     net = network(panel)
@@ -116,6 +135,14 @@ def build(panel: str, z: dict, idx: tuple, prof: dict | None = None) -> pd.DataF
         num = csum[d, hi, l] - csum[d, lo, l]
         den = ccnt[d, hi, l] - ccnt[d, lo, l]
         F[f"{c}_rel1h"] = np.where(den > 0, num / np.maximum(den, 1), np.nan).astype(np.float32)
+    if ramps:
+        on, off = ramp_link_flows(panel, z, net)
+        for k in (-1, 0, 1):
+            F[f"ron{k}"] = shift_l(on, k)[d, t, l]
+            F[f"roff{k}"] = shift_l(off, k)[d, t, l]
+        fm = z["m_flow"]
+        F["cons_up"] = (shift_l(fm, -1) + on - off)[d, t, l]
+        F["cons_dn"] = (shift_l(fm, 1) - shift_l(on, 1) + shift_l(off, 1))[d, t, l]
     df = pd.DataFrame(F)
     # derived
     df["k_lin"] = df.flow_lin / df.speed_lin.clip(lower=1)

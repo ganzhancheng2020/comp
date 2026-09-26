@@ -53,7 +53,8 @@ def aggregate(rows: pd.DataFrame, col: str = "iou") -> dict:
     return {"S_queue": round(float(total), 4), **{k: round(v, 4) for k, v in by_cond.items()}}
 
 
-def eval_models(verbose=True, onset_rounds=400, ongoing_rounds=600, ongoing_params=None, decode_fn=None):
+def eval_models(verbose=True, onset_rounds=400, ongoing_rounds=600, ongoing_params=None, decode_fn=None,
+                ongoing_filter=None):
     """2 折（按日奇偶）训练 onset / ongoing 模型，在组织方 train 窗口上打分。"""
     import lightgbm as lgb
     from . import t2_onset as on, t2_ongoing as og
@@ -66,6 +67,8 @@ def eval_models(verbose=True, onset_rounds=400, ongoing_rounds=600, ongoing_para
     dog = pd.read_parquet(CACHE / "t2_ongoing.parquet")
     dog["pid"] = dog.panel.map({p: i for i, p in enumerate(T2P)})
     fog = [c for c in dog.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
+    if ongoing_filter is not None:
+        dog = ongoing_filter(dog)
     par = dict(objective="binary", learning_rate=0.05, num_leaves=63, min_data_in_leaf=200, feature_fraction=0.8,
                bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=2)
     par.update(ongoing_params or {})
