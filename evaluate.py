@@ -49,8 +49,12 @@ def main():
     ap.add_argument("--time", type=float, default=30)
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--out", default="")
+    ap.add_argument("--ids", default="", help="file with task ids to restrict to")
     a = ap.parse_args()
     files = sorted(os.path.join(a.dir, f) for f in os.listdir(a.dir) if f.endswith(".json"))
+    if a.ids:
+        keep = set(open(a.ids).read().split())
+        files = [f for f in files if os.path.basename(f)[:-5] in keep]
     if a.limit:
         files = files[: a.limit]
     t0 = time.time()

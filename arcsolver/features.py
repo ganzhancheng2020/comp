@@ -7,7 +7,10 @@ so feature tuples can be packed into a single int64 key.
 import numpy as np
 from scipy import ndimage
 
-from .grid import background, enclosed, label_map
+import zlib
+
+from .config import on
+from .grid import background, components, crop, enclosed, label_map
 
 NONE = 10  # "outside grid" / "no such cell"
 DIRS4 = {"u": (-1, 0), "d": (1, 0), "l": (0, -1), "r": (0, 1)}
@@ -159,6 +162,37 @@ def cell_features(a: np.ndarray, bg: int = None) -> dict:
                 F[tag + "_minor"] = np.full((h, w), NONE, dtype=np.int16)
                 COLOR_FEATURES.add(tag + "_minor")
 
+    # Grid-level context features, broadcast to every cell.
+    if not on("context"):
+        return _finish(F, a)
+    objs = components(a, bg, diag=True, by_color=False)
+    full = lambda v: np.full((h, w), v, dtype=np.int16)
+    F["g_nobj"] = full(min(len(objs), 31))
+    nz = a[a != bg]
+    if len(nz):
+        bc = np.bincount(nz, minlength=10)
+        present = np.nonzero(bc)[0]
+        color_feat("g_rarest", full(present[np.argmin(bc[present])]))
+        color_feat("g_commonest", full(bc.argmax()))
+    else:
+        color_feat("g_rarest", full(NONE))
+        color_feat("g_commonest", full(NONE))
+    if objs:
+        sizes = [o["size"] for o in objs]
+        for tag, pick in (("small", int(np.argmin(sizes))), ("large", int(np.argmax(sizes)))):
+            o = objs[pick]
+            m = crop(o["mask"], o["bbox"])
+            F[f"g_{tag}_shape"] = full(zlib.crc32(m.tobytes() + bytes(m.shape)) % 61)
+            color_feat(f"g_{tag}_color", full(o["color"]))
+    else:
+        for tag in ("small", "large"):
+            F[f"g_{tag}_shape"] = full(61)
+            color_feat(f"g_{tag}_color", full(NONE))
+
+    return _finish(F, a)
+
+
+def _finish(F, a):
     # Color frequency rank of own color (0 = most common).
     counts = np.bincount(a.ravel(), minlength=11)
     order = np.argsort(-counts, kind="stable")

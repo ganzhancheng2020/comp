@@ -1,12 +1,18 @@
 """Top-level solver: transform search + MDL local-rule induction + model averaging."""
+import os
 import time
 from collections import defaultdict
 
 import numpy as np
 
 from . import dsl
+from .config import on
 from .grid import to_list, to_np
-from .rules import learn_rules
+from .rules import learn_rules, load_prior
+
+_PRIOR = os.environ.get("ARC_PRIOR_PATH") or os.path.join(os.path.dirname(__file__), "prior.json")
+if os.path.exists(_PRIOR) and os.environ.get("ARC_PRIOR", "1") != "0":
+    load_prior(_PRIOR)
 
 GEOM = [t for t in dsl.TRANSFORMS if t[0] in (
     "rot90", "rot180", "rot270", "flipud", "fliplr", "transpose", "antitranspose", "crop_nonbg",
@@ -39,7 +45,8 @@ def solve_task(task, time_limit=30.0, max_rule_transforms=6, verbose=False):
 
     def add(grids, logw, why):
         k = _key(grids)
-        votes[k] = np.logaddexp(votes[k], logw)
+        # Bayesian model averaging pools evidence; the ablation keeps only the best rule.
+        votes[k] = np.logaddexp(votes[k], logw) if on("bma") else max(votes[k], logw)
         preds[k] = grids
         if k not in explain or logw > explain[k][0]:
             explain[k] = (logw, why)
