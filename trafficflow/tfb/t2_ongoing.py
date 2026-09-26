@@ -103,12 +103,12 @@ def decode(p: np.ndarray, extra_true: float = 0.0) -> np.ndarray:
     return sel
 
 
-def fit_all(rounds: int = 600):
+def fit_all(rounds: int = 1000):
     import lightgbm as lgb
     df = pd.read_parquet(CACHE / "t2_ongoing.parquet")
     df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
     feats = [c for c in df.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
-    m = lgb.train(dict(objective="binary", learning_rate=0.05, num_leaves=63, min_data_in_leaf=200,
+    m = lgb.train(dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100,
                        feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=4),
                   lgb.Dataset(df[feats], df.y, categorical_feature=["pid"]), rounds)
     return m, feats

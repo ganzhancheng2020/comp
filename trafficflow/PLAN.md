@@ -109,7 +109,22 @@ standard error is about 0.04; improvements under ~0.02 need the leaderboard.
 Submission plan for the next day (5/day, resets 00:00 UTC). Each probe changes one factor only.
 The zips are prebuilt in `out/tfb/`. Submit with `python -m tfb.lb out/tfb/sub_<name>.zip "<msg>"`.
 The probes use v4 (0.86257) as the base, so each leaderboard delta maps directly onto one component.
-Files: `sub_v5_full`, `sub_p_q0`, `sub_p_sl2`, `sub_p_plen`, `sub_p_geo`.
+Order (revised 2026-09-26 19:30 UTC): `sub_v5_t2new` (v4 + retuned T2: onset num_leaves 31, ongoing
+num_leaves 255 / 1000 rounds), then `sub_v6_t2new_t1full` (v5 + full-train T1), then `sub_p_sl2`,
+`sub_p_plen`, `sub_p_geo`. `sub_p_q0` (S_queue calibration) moves to a later day: two leaderboard
+deltas already confirm the T2 evaluator.
+
+Large, selector-aligned T2 evaluators (`tfb/t2_eval_big.py`) are built from mined train events with
+the selector's filters: the horizon has an eligible queued cell, history coverage is ≥ 0.7, and for
+ongoing windows the persistence IoU is ≤ 0.9. IoU counts eligible cells only.
+* Onset: 1,900 events. The static set scores 0.713 here, against 0.725 on the organizer's windows
+  and ≈ 0.75 implied online, so it is aligned. Model 0.880; num_leaves 31 → 0.898. A 0.5-threshold
+  decode drops to 0.776.
+* Ongoing: 5,760 windows. Persistence 0.644 and model 0.788, which is about 0.1 below the level on
+  the organizer's windows, so use it for relative comparisons only. num_leaves 127 → 0.808;
+  num_leaves 255 with min_data 100 → 0.812.
+* The earlier event-based evaluator did not align because it ignored eligibility: IoU is scored on
+  eligible cells only, and bottleneck clusters often contain ineligible cells.
 1. v5 = v4 + full-train T1 model (`state_lgbfull_gap.csv`), for T1 transfer.
 2. Probe: v4 with every queue_pred = 0 → gives the online S_queue(v4) exactly
    (S_queue = Δ/0.30), which calibrates the local 0.833.
