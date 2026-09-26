@@ -80,7 +80,7 @@ def decode(p: np.ndarray, links: np.ndarray, n_mc: int = 400, rng=None) -> list[
     return links[order[:best_k]].tolist()
 
 
-PARAMS = dict(objective="binary", learning_rate=0.03, num_leaves=15, min_data_in_leaf=20,
+PARAMS = dict(objective="binary", learning_rate=0.03, num_leaves=31, min_data_in_leaf=20,
               feature_fraction=0.8, verbose=-1, num_threads=2)
 T2P = ["D7_I10_E", "D7_I10_W", "D7_I210_E", "D7_I210_W", "D7_I405_N", "D7_I405_S", "D12_I5_N", "D12_I5_S"]
 
