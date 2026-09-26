@@ -25,4 +25,13 @@ python evaluate.py data_arc2/data/training --time 20
 Ablations are switched with `ARC_ABLATE=copy,keep,context,interp,bma,gate`. `ARC_PRIOR=0`
 disables the learned prior, and `ARC_PRIOR_PATH=...` selects a different prior file.
 
+## Kaggle MCP
+
+`.mcp.json` registers Kaggle's remote MCP server (`https://www.kaggle.com/mcp`) for Claude Code, and
+`.claude/settings.json` pre-approves it. It authenticates with `Authorization: Bearer ${KAGGLE_KEY}`,
+so set `KAGGLE_KEY` (and `KAGGLE_USERNAME`) in the environment. The server exposes competition
+search, data download, `submit_to_competition`, `create_code_competition_submission` and
+`search_competition_submissions`. You must still accept each competition's rules on kaggle.com
+before submitting.
+
 License: Apache-2.0.
