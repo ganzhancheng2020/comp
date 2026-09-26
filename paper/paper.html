@@ -1,0 +1,307 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Expressible but Not Learnable? MDL Local-Rule Induction and the ARC-AGI-1 → ARC-AGI-2 Gap</title>
+<style>
+@page { size: Letter; margin: 0.8in; }
+body { font-family: 'Times New Roman', serif; font-size: 10.5pt; line-height: 1.38; color: #111; }
+h1 { font-size: 17pt; text-align: center; margin: 0 0 4px; }
+.sub { text-align: center; color: #444; margin-bottom: 18px; }
+h2 { font-size: 12.5pt; margin: 16px 0 6px; } h3 { font-size: 11pt; margin: 12px 0 4px; }
+table { border-collapse: collapse; margin: 8px auto; font-size: 9.5pt; }
+th, td { border-top: 1px solid #999; border-bottom: 1px solid #999; padding: 3px 8px; text-align: left; }
+th { border-top: 1.5px solid #000; }
+code { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.8pt; }
+</style></head><body><h1>Expressible but Not Learnable? MDL Local-Rule Induction and the ARC-AGI-1 → ARC-AGI-2 Gap</h1><div class="sub">ARC Prize 2026 — Paper Track submission</div><h2>Abstract</h2>
+<p>We present a CPU-only ARC solver built around one principle: <strong>choose the shortest consistent
+explanation, and say when there is none.</strong> The solver searches over grid-level transforms and then
+induces <em>local rules</em>. A local rule is a lookup table from a small tuple of per-cell features
+(own colour, neighbours, rays, symmetry partners, object statistics, grid-level context) to an
+output label. Candidate rules are scored by description length (DL). Predictions from all
+consistent rules are pooled by Bayesian model averaging with weights ∝ 2^−DL. Three mechanisms
+make the rule class generalise beyond memorisation:</p>
+<ol>
+<li><strong>target re-encodings</strong> (<em>absolute</em>, <em>keep-unless-changed</em> and <em>copy-from-feature</em>);</li>
+<li><strong>monotone interval interpolation</strong>, so rules keyed on ordinal features stay defined for
+   values never seen in training;</li>
+<li>a <strong>compression gate</strong> that rejects rules which do not compress the observed changes.</li>
+</ol>
+<p>We also test two ideas that did <em>not</em> help, and report them as negative results:
+meta-learning the DL prior over features, and averaging predictions over all consistent rules.</p>
+<p>Our main contribution is diagnostic. We separate <em>expressibility</em> (a compact rule exists, found by
+an oracle that also sees the test outputs) from <em>learnability</em> (the rule is recovered from the
+training pairs alone). On the 1,000 ARC-AGI-2 training tasks, compact local rules express
+<strong>187</strong> tasks (18.7%), and the solver learns <strong>126 of those (67%)</strong> from the demonstrations alone. On the 120
+public evaluation tasks, the same rule class expresses <strong>only 2 (1.7%)</strong>, and neither is learned. The ARC-AGI-2
+evaluation set is therefore not merely harder to <em>learn</em>: it is almost entirely outside the
+<em>expressible</em> region of per-cell rules, even with a rich feature bank and grid-level context. We
+use this to argue, quantitatively, where program-synthesis research effort should go.</p>
+<h2>1. Introduction</h2>
+<p>ARC-AGI asks a solver to infer a grid transformation from two to five demonstration pairs. Two
+families dominate the literature. Neural methods use test-time-trained LLMs or recursive networks.
+Symbolic methods search a DSL. Both families improve on ARC-AGI-1 and struggle on ARC-AGI-2. The
+reason is usually described qualitatively: ARC-AGI-2 tasks are "more compositional".</p>
+<p>We make this quantitative for one well-defined, interpretable hypothesis class: <strong>local rules</strong>.
+A local rule states that each output cell is a function of a few features of the corresponding
+input cell (after an optional global transform). The class is small enough to enumerate
+exhaustively. It is rich enough to cover recolouring by object size, symmetry completion, hole
+filling, line extension between markers, parity patterns, and conditioning on a "key" object
+elsewhere in the grid. Because the class can be enumerated, we can answer two separate questions
+for every task:</p>
+<ul>
+<li><strong>Expressibility.</strong> Does <em>any</em> compact rule reproduce the train and test outputs? We answer this
+  with an oracle that is given the test outputs.</li>
+<li><strong>Learnability.</strong> Does MDL selection, from the train pairs alone, pick a rule that is right
+  on the test?</li>
+</ul>
+<p>The difference between the two is the <em>induction gap</em>. Tasks outside the expressible region
+measure the <em>representation gap</em>. Keeping the two apart tells us whether to improve priors (the
+induction gap) or the hypothesis class (the representation gap).</p>
+<h2>2. Method</h2>
+<h3>2.1 Transform stage</h3>
+<p>A library of about 110 parameter-free grid transforms covers the following:</p>
+<ul>
+<li>rotations and reflections;</li>
+<li>crops to the non-background bounding box or to a selected object (largest, smallest, unique
+  colour, unique shape, densest, most colours);</li>
+<li>integer up- and down-scaling;</li>
+<li>tilings and mirror tilings;</li>
+<li>a self-Kronecker product;</li>
+<li>separator-aware splitting into panels, combined by count, bit-code, AND, OR, XOR, first/last
+  overlay, or selection of the most/least/unique panel;</li>
+<li>per-cell summaries of separator grids;</li>
+<li>de-duplication of rows and columns.</li>
+</ul>
+<p>A transform is <em>exact</em> if it maps every train input to its output. Otherwise, if it produces
+output-shaped grids, it is kept as the substrate for rule induction. Depth-2 compositions are
+checked for exactness only. The six substrates closest to the targets (by pixel accuracy) are
+passed to the rule stage.</p>
+<h3>2.2 Feature bank</h3>
+<p>For every cell we compute about 70 integer features:</p>
+<ul>
+<li><strong>local:</strong> own colour, the 8 neighbours, first non-background colour along each of 8 rays,
+  horizontal/vertical "between two same-coloured cells", 4- and 8-neighbour counts, same-colour
+  neighbours;</li>
+<li><strong>geometric:</strong> row and column indices from each edge, index mod 2 and 3, border and diagonal
+  membership, mirror partners (horizontal, vertical, both, transpose, anti-transpose), dominant
+  colour of the row and of the column;</li>
+<li><strong>object:</strong> for single-colour 4-connected objects and multicolour 8-connected objects: size,
+  size rank from the top and from the bottom, border contact, number of colours, minority
+  ("marker") colour, enclosure;</li>
+<li><strong>grid context:</strong> number of objects, rarest and commonest colour, colour and shape hash of the
+  smallest and largest object;</li>
+<li><strong>frequency:</strong> frequency rank of the own colour.</li>
+</ul>
+<h3>2.3 Rule induction under MDL</h3>
+<p>For a feature subset <em>S</em> and a target encoding <em>E</em>, the rule is the table key_S(cell) → label_E(cell).
+It is <em>consistent</em> if no key maps to two labels across all training cells. The target encodings are:</p>
+<ul>
+<li><strong>abs</strong>: the output colour;</li>
+<li><strong>keep</strong>: <code>KEEP</code> if the cell is unchanged, else its new colour;</li>
+<li><strong>copy_f</strong>: <code>KEEP</code> if unchanged, else <code>COPY</code>, meaning "take the colour of feature <em>f</em>". This is
+  offered only when <em>f</em> explains every changed cell.</li>
+</ul>
+<p>We enumerate all singletons and pairs exhaustively. We extend the 24 least-impure pairs to
+triples (beam search). The description length of a rule is</p>
+<p>DL = |table| + Σ_{f∈S} cost(f) + cost(E) + 4·#unseen + interp_cost.</p>
+<p>Here #unseen counts test keys that the table does not cover (they default to <code>KEEP</code>).
+interp_cost is charged per key resolved by interval interpolation (§2.4). Rules with more than
+40 table entries fail the <strong>compression gate</strong>. They are kept only as a last resort.</p>
+<h3>2.4 Monotone interval interpolation</h3>
+<p>Object sizes, counts and ranks in the test grid are often values never seen in training. For an
+unseen test key, we look for seen keys that match it on all positions except one ordinal
+feature. If the nearest seen values below and above agree on the label, the key inherits that
+label (cost 1). One-sided extrapolation costs 2. Conflicts leave the key unresolved.</p>
+<h3>2.5 Bayesian model averaging</h3>
+<p>Every consistent rule, on every substrate, votes for its predicted test grids with log-weight
+−DL/2 − cost(transform). Identical predictions pool their evidence with log-sum-exp. The two
+highest-scoring distinct predictions are submitted as <code>attempt_1</code> and <code>attempt_2</code>.</p>
+<h3>2.6 Meta-learned feature prior</h3>
+<p>The uniform cost(f) = 1.5 is replaced by cost(f) = −log₂ p(f) / log₂ 10, measured in
+table-entry units. p(f) is the Laplace-smoothed frequency of <em>f</em> in the minimal-DL oracle rules
+of held-in tasks. We report 2-fold cross-validation on the training set, so the prior is never
+estimated from the tasks it is evaluated on.</p>
+<h2>3. Experiments</h2>
+<p>All numbers come from <code>run_experiments.sh</code> on 4 CPU cores. The time limits are 20 s per task on
+training and 30 s on evaluation. The full training run takes about 4 minutes. A task's score is
+the fraction of its test outputs matched exactly by one of the two attempts.</p>
+<h3>3.1 Accuracy</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>ARC-AGI-2 training (1,000)</th>
+<th>ARC-AGI-2 public eval (120)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transforms + local rules (full)</td>
+<td>135.5 (13.6%)</td>
+<td>0 (0.0%)</td>
+</tr>
+<tr>
+<td>… + learned feature prior</td>
+<td>135.5 (13.6%, 2-fold CV)</td>
+<td>0 (0.0%)</td>
+</tr>
+</tbody>
+</table>
+<p>The ARC-AGI-2 training set contains most of ARC-AGI-1, and the solver solves 13.6% of it. It
+solves nothing on the public evaluation set. Precision on training correlates strongly with rule
+size. Rules with ≤5 table entries are right on 40.5 of the 47 tasks where they are chosen. Rules
+with ≤20 entries are right on 72 of 127. Rules with &gt;40 entries are right on only 5 of 233,
+which is what motivates the compression gate.</p>
+<h3>3.2 Expressibility vs. learnability (main result)</h3>
+<p>For each task we run the same machinery with the <strong>test outputs included as training pairs</strong>
+(the oracle) and ask whether a rule with ≤40 table entries, or an exact transform, reproduces
+every pair.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Training (1,000)</th>
+<th>Public eval (120)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Output shape reachable by some transform</td>
+<td>817 (81.7%)</td>
+<td>89 (74.2%)</td>
+</tr>
+<tr>
+<td><strong>Expressible</strong> (exact transform or compact rule)</td>
+<td><strong>187 (18.7%)</strong></td>
+<td><strong>2 (1.7%)</strong></td>
+</tr>
+<tr>
+<td>… of which exact transforms</td>
+<td>32</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Solved from train pairs alone</td>
+<td>137</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>Learned ∣ expressible</strong></td>
+<td><strong>126 / 187 (67%)</strong></td>
+<td>0 / 2</td>
+</tr>
+</tbody>
+</table>
+<p>Three observations:</p>
+<ol>
+<li><strong>On ARC-AGI-2 evaluation, the representation gap dominates.</strong> 89 of 120 tasks have output
+   grids of the right <em>shape</em> after some transform. Yet per-cell rules over ~70 features (local,
+   geometric, object-level and grid-context) express only two of them. Even these two need
+   24–32 table entries, close to the gate: they are near-memorisations, not concise laws. The
+   ARC-AGI-1-style mechanisms (recolour by property, fill by enclosure, symmetry completion,
+   panel overlays) are essentially absent from the new evaluation set.</li>
+<li><strong>On ARC-AGI-1-style tasks, the induction gap is moderate.</strong> Given an expressible task, MDL
+   selection from 2–5 demonstrations picks a correct rule 67% of the time. Inspecting the
+   failures shows two kinds. In the first, the oracle's rule is <em>coincidental</em>: object size
+   happens to separate the test classes, while the true cause is the shape of a key object.
+   In the second, the test contains feature values outside the training range. The first kind
+   motivated the grid-context features, the second the interval interpolation.</li>
+<li><strong>Learnability improvements do not transfer.</strong> Every component that raised training accuracy
+   left evaluation accuracy at exactly zero, because it acts inside a region that the evaluation
+   tasks do not occupy.</li>
+</ol>
+<h3>3.3 Ablations (training set, 1,000 tasks)</h3>
+<table>
+<thead>
+<tr>
+<th>Removed component</th>
+<th>Score</th>
+<th>Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>none (full)</td>
+<td>135.5</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>keep</code> target encoding</td>
+<td>122.0</td>
+<td>−13.5</td>
+</tr>
+<tr>
+<td><code>copy-from-feature</code> target encoding</td>
+<td>128.5</td>
+<td>−7.0</td>
+</tr>
+<tr>
+<td>grid-context features</td>
+<td>132.0</td>
+<td>−3.5</td>
+</tr>
+<tr>
+<td>interval interpolation</td>
+<td>133.5</td>
+<td>−2.0</td>
+</tr>
+<tr>
+<td>compression gate</td>
+<td>135.5</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>Bayesian model averaging (keep only the min-DL rule)</td>
+<td>136.0</td>
+<td><strong>+0.5</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>target encodings are the most important design choice</strong>. Letting a rule output "unchanged"
+or "copy the colour of feature <em>f</em>" makes most tables small and colour-invariant. That is
+exactly the kind of generalisation the demonstrations cannot show directly. The compression gate
+does not change accuracy by design, since it only re-ranks candidates; its value is calibration.
+Model averaging brings no benefit: identical predictions from many near-duplicate rules
+(e.g. <code>c</code> vs. <code>col_rank</code>) inflate their total weight without adding independent evidence.</p>
+<h3>3.4 Learned feature prior (negative result)</h3>
+<p>Replacing the uniform per-feature cost with −log p(f), estimated from the oracle rules of the
+other fold, leaves the score <em>exactly</em> unchanged on both folds: 67.5 → 67.5 and 68.0 → 68.0. The
+reason is structural. Rule DL is dominated by the table size |table|. Feature costs differ by
+less than one table entry (0.8 for <code>c</code> up to 2.5 for rare features), so they only break ties
+between rules of equal table size. Such ties almost always predict the same test output.</p>
+<h2>4. Discussion</h2>
+<p><strong>Where should effort go?</strong> Our measurements give a concrete answer for symbolic ARC solvers.
+Better priors, averaging and interpolation over a <em>per-cell</em> hypothesis class buy a few points on
+ARC-AGI-1-style tasks and nothing on ARC-AGI-2. The ARC-AGI-2 evaluation tasks sit outside the
+class: 87 of 89 shape-reachable tasks cannot be written as a compact function of any
+cell-local or grid-context feature set we tried. To make progress, a solver must change the
+<em>unit</em> of the rule. It needs rules over objects and their relations (which object goes where,
+matched by shape up to symmetry), rules that apply other rules conditionally, and rules whose
+output geometry is computed rather than copied.</p>
+<p><strong>A diagnostic, not only a solver.</strong> The expressible/learnable split is cheap to compute: about
+4 minutes on a CPU for 1,000 tasks. It can be run on any rule or program class for which an
+oracle fit exists. We suggest that ARC method papers report both numbers, because they separate
+two claims that are usually conflated: "my representation can describe these tasks" and "my
+inference procedure finds the description from few examples". For example, an LLM-based
+program synthesiser can be evaluated by (a) whether a program exists in its sampling
+distribution that fits train+test, and (b) whether it is selected from train alone.</p>
+<p><strong>Honest scope.</strong> A 13.6% training score is far below neural test-time-training systems. The
+contribution is the measurement, together with a fast, fully interpretable baseline whose every
+prediction comes with a human-readable rule (for example
+<code>keep-unless-changed on [enclosed] (2 entries)</code> for "fill enclosed regions").</p>
+<h2>5. Limitations</h2>
+<ul>
+<li>The rule class is per-cell. It cannot express counting-to-output-size, object re-arrangement,
+  or multi-step programs unless one of the substrate transforms already does the non-local work.</li>
+<li>The shape hashes in the context features are local to a grid. Matching shapes <em>across</em>
+  demonstrations works by hash equality, which is brittle to rotation.</li>
+<li>Accuracy on ARC-AGI-2 is low in absolute terms. We make no claim that this approach is
+  competitive with test-time-trained LLMs. Our claim is about <em>where</em> the difficulty lies.</li>
+</ul>
+<h2>6. Reproducibility</h2>
+<p>All code is open source (Apache-2.0) in this repository. The whole pipeline runs on four CPU
+cores in under ten minutes for the 1,000 training tasks.</p>
+<ul>
+<li><code>evaluate.py</code> scores any task directory.</li>
+<li><code>analysis_oracle.py</code> produces the expressibility/learnability numbers.</li>
+<li><code>learn_prior.py</code> produces the feature prior.</li>
+<li><code>kaggle/arc_mdl_rules.ipynb</code> is the offline Kaggle submission (no internet, no GPU, no
+  pretrained weights).</li>
+</ul></body></html>
