@@ -6,6 +6,7 @@ table key(S) -> label(E) is consistent with every training cell. Each
 consistent rule gets a description length; predictions from all consistent
 rules are pooled with weights exp(-DL) (a crude Bayesian model average).
 """
+import bisect
 from itertools import combinations
 
 import numpy as np
@@ -29,6 +30,7 @@ def feature_cost(name):
     return FEATURE_COST.get(name, FEATURE_COST.get("__default__", FEATURE_COST_DEFAULT))
 MAX_COMPRESSIVE_ENTRIES = 40
 MEMORIZATION_PENALTY = 1000.0
+MAX_INTERP_KEYS = 64
 BASE = 64
 
 
@@ -150,28 +152,38 @@ def _interpolate(names, Ftr, Fte, subset, table, unseen):
             tup.append(k % BASE)
             k //= BASE
         seen[tuple(reversed(tup))] = lab
+    # Index seen tuples by (ordinal position, all other positions) -> sorted (value, label).
+    index = {}
+    for t, lab in seen.items():
+        for p in ords:
+            index.setdefault((p, t[:p] + t[p + 1:]), []).append((t[p], lab))
+    for v in index.values():
+        v.sort()
     te_tuples = [tuple(int(Fte[i][j]) for i in subset) for j in range(Fte.shape[1])]
     resolved, cache, cost = {}, {}, 0.0
     for j in np.flatnonzero(unseen):
         u = te_tuples[j]
         if u not in cache:
+            if len(cache) >= MAX_INTERP_KEYS:
+                cache[u] = (None, 0.0)
+                continue
             labs = set()
             extra = 0.0
             for p in ords:
-                pts = sorted((t[p], lab) for t, lab in seen.items()
-                             if all(t[q] == u[q] for q in range(len(u)) if q != p))
+                pts = index.get((p, u[:p] + u[p + 1:]))
                 if not pts:
                     continue
-                lo = [lab for v, lab in pts if v < u[p]]
-                hi = [lab for v, lab in pts if v > u[p]]
-                if lo and hi:
-                    if lo[-1] == hi[0]:
-                        labs.add(lo[-1])
+                k = bisect.bisect_left([v for v, _ in pts], u[p])
+                lo = pts[k - 1][1] if k > 0 else None
+                hi = pts[k][1] if k < len(pts) else None
+                if lo is not None and hi is not None:
+                    if lo == hi:
+                        labs.add(lo)
                         extra = max(extra, 1.0)
                     else:
                         labs.add(None)
-                elif lo or hi:
-                    labs.add(lo[-1] if lo else hi[0])
+                else:
+                    labs.add(lo if lo is not None else hi)
                     extra = max(extra, 2.0)
             lab = labs.pop() if len(labs) == 1 else None
             cache[u] = (lab, extra)
