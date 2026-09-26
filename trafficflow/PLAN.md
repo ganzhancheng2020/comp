@@ -107,6 +107,9 @@ Local T2 (v3/v4): S_queue 0.833 (onset 0.828, ongoing 0.838). Only 40 windows pe
 standard error is about 0.04; improvements under ~0.02 need the leaderboard.
 
 Submission plan for the next day (5/day, resets 00:00 UTC). Each probe changes one factor only.
+The zips are prebuilt in `out/tfb/`. Submit with `python -m tfb.lb out/tfb/sub_<name>.zip "<msg>"`.
+The probes use v4 (0.86257) as the base, so each leaderboard delta maps directly onto one component.
+Files: `sub_v5_full`, `sub_p_q0`, `sub_p_sl2`, `sub_p_plen`, `sub_p_geo`.
 1. v5 = v4 + full-train T1 model (`state_lgbfull_gap.csv`), for T1 transfer.
 2. Probe: v4 with every queue_pred = 0 → gives the online S_queue(v4) exactly
    (S_queue = Δ/0.30), which calibrates the local 0.833.
