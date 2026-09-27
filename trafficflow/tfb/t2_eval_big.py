@@ -64,7 +64,7 @@ if __name__ == "__main__":
     print(pm.round(3)); print(m.round(4).to_dict())
 
 
-def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=None, train_filter=None):
+def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=None, train_filter=None, seeds=(0,)):
     """挖掘的 ongoing 窗口（t2_ongoing.parquet）+ 选择器约束：历史覆盖率 >= 0.7、horizon 有 eligible 排队格、
     持续性 IoU（eligible）<= 0.9。IoU 只算 eligible 格，含候选集外的真值格。2 折按日奇偶。"""
     from . import t2_ongoing as og
@@ -80,7 +80,8 @@ def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=
         tr = df[df.d % 2 != f]
         if train_filter is not None:
             tr = train_filter(tr)
-        models[f] = lgb.train(par, lgb.Dataset(tr[feats], tr.y, categorical_feature=["pid"]), rounds)
+        models[f] = [lgb.train(dict(par, seed=sd, bagging_seed=sd, feature_fraction_seed=sd),
+                               lgb.Dataset(tr[feats], tr.y, categorical_feature=["pid"]), rounds) for sd in seeds]
     out = []
     for p in T2P:
         z = load(p, "train")
@@ -96,7 +97,7 @@ def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=
             g_f = g_all[g_all.d % 2 == f]
             if g_f.empty:
                 continue
-            pr = models[f].predict(g_f[feats])
+            pr = np.mean([mm.predict(g_f[feats]) for mm in models[f]], axis=0)
             g_f = g_f.assign(p=pr)
             for (d, T), g in g_f.groupby(["d", "T"]):
                 if cov[d, T - 12:T + 1].mean() < 0.7:

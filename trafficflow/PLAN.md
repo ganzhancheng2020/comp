@@ -286,3 +286,11 @@ Hypotheses checked and rejected on 2026-09-27:
 * Public notebooks (best 0.809) hold nothing new. The 0.809 notebook's v11→v13 step (only T4 → ridge
   λ=0.05) gained +0.0108 online, consistent with the leaderboard truth ≈ the ridge solution, so T4 is
   closed.
+
+More rejected hypotheses (2026-09-27, local and aligned):
+* Onset with earlier-day features (queue counts, time since the last queue, min ratio before T−60,
+  from the masked layer; causal): 0.9153 with link-level features only and 0.9137 with
+  cluster-level too, against 0.9175 without. No gain, so onset looks saturated at ≈ 0.915–0.92.
+* Temporal smoothing of predicted density at target cells (normalised 3-tap, α 0.25/0.5, flow
+  re-derived as k·v): net total between −0.001 and +0.0003. No gain; the model's density is already
+  smooth.
