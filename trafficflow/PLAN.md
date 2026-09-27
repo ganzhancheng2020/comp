@@ -336,6 +336,6 @@ The blend adds +0.014 on ongoing, so S_queue ≈ +0.007 and the total ≈ +0.002
 (The earlier blend run at 10:55 died silently from a memory-cgroup OOM while loading the full
 frame. The evaluator now reads per panel and keeps only the fold's rows as float32.)
 
-v8 (`tfb/t2_final.py`) = v7c with ongoing replaced by the blend. It is trained on all windows, with a
+v8 (`tfb/t2_final.py`, built 22:27 UTC, `out/tfb/sub_v8.zip`) = v7c with ongoing replaced by the blend. It is trained on all windows, with a
 25-epoch CNN. **Expected Δ vs v6: about +0.007 to +0.009.** If it is ready before 00:05 UTC, it
 replaces v7c as the day's single submission.
