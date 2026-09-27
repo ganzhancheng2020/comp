@@ -294,3 +294,20 @@ More rejected hypotheses (2026-09-27, local and aligned):
 * Temporal smoothing of predicted density at target cells (normalised 3-tap, α 0.25/0.5, flow
   re-derived as k·v): net total between −0.001 and +0.0003. No gain; the model's density is already
   smooth.
+
+## Reachable score and the gap to #1 (analysis, 2026-09-27)
+
+Headroom left for legitimate improvements (each estimated with aligned local evaluators):
+* T1: noise floor (speed σ ≈ 1.7, flow/lane ≈ 30). The rest is in the gap cells, ≤ +0.0025 total.
+* Physics: floor for everyone; conservation and smoothing were both tested without gain.
+* T4: ≈ optimal under the l2dev proxy that reproduces all five online points.
+* T2: v7c ≈ onset 0.918 and ongoing 0.835 (big evaluators). With more work, maybe +0.005 total.
+So the reachable total is ≈ 0.875–0.88, and #1 is 0.924.
+
+The most plausible source of the remaining ≈ 0.045 is T2 read-back from observations published after
+the post-horizon buffer (T+95 onwards). Queues last hours, so the far side reveals which cluster
+queued (onset) and whether the queue persisted (ongoing). T2 near 1.0 would add ≈ +0.03–0.04.
+We do NOT use this: Task 2 is defined as online (60-minute history), and recovering hidden labels is
+prohibited. The account holder could ask the organizers in the competition forum whether
+post-buffer observations are allowed for Task 2. If they rule they are allowed, it becomes a large
+and legitimate lever. Until then we stay within the documented information set.

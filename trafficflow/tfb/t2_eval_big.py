@@ -64,7 +64,7 @@ if __name__ == "__main__":
     print(pm.round(3)); print(m.round(4).to_dict())
 
 
-def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=None, train_filter=None, seeds=(0,)):
+def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=None, train_filter=None, seeds=(0,), decodes=None):
     """挖掘的 ongoing 窗口（t2_ongoing.parquet）+ 选择器约束：历史覆盖率 >= 0.7、horizon 有 eligible 排队格、
     持续性 IoU（eligible）<= 0.9。IoU 只算 eligible 格，含候选集外的真值格。2 折按日奇偶。"""
     from . import t2_ongoing as og
@@ -118,10 +118,13 @@ def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=
                 sp = sc(pers)
                 if sp > 0.9:
                     continue
-                sel = (decode or og.decode)(g.p.to_numpy())
-                mp = np.zeros_like(tru)
-                mp[k[sel], l[sel]] = True
-                out.append(dict(panel=p, pers=sp, model=sc(mp)))
+                row = dict(panel=p, pers=sp)
+                for name, fn in ({"model": (decode or og.decode)} | (decodes or {})).items():
+                    sel = fn(g.p.to_numpy())
+                    mp = np.zeros_like(tru)
+                    mp[k[sel], l[sel]] = True
+                    row[name] = sc(mp)
+                out.append(row)
     res = pd.DataFrame(out)
-    pm = res.groupby("panel")[["pers", "model"]].mean()
+    pm = res.drop(columns="panel").groupby(res.panel).mean()
     return pm, pm.mean(), len(res)
