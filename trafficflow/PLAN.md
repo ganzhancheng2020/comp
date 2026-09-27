@@ -205,3 +205,16 @@ The noise in log v and log q is independent (residual correlation ≈ 0.00), so 
 (2nd-difference sd of log k is 0.059, against 0.055 for log q). There is no smoother density to
 exploit, and the S_LWR floor is the same for everyone at T1 ≈ noise floor. So the remaining gap to
 the top is in T2 and/or T4; the probes above decide which.
+
+## Submission policy (from the user, 2026-09-27: every submission is expensive, do not waste any)
+
+* No pure diagnostic probes. Zeroing T2, T4 or the onset windows is cancelled, because those
+  submissions can only lower the score.
+* Submit only a candidate whose local, leaderboard-aligned evaluators predict a total gain of at
+  least +0.003. Merge several small improvements into one submission.
+* T4: four probes (KL, sl2, plen, geo) all lost to L2, and L2 equals the split's ridge solve to
+  within 0.04%. The blend probes are on hold until a new hypothesis with real upside exists.
+* Before each submission, write down the expected Δ and its components. Afterwards, record the
+  actual Δ in the calibration table.
+* The prebuilt diagnostic zips in `out/tfb/` (`sub_p_q0v6`, `sub_p_onset0v6`, `sub_p_o0v6`,
+  `sub_p_blend*`) are not to be submitted.
