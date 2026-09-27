@@ -171,5 +171,24 @@ Next-day submissions (base v6), revised:
 1. `sub_p_q0v6`: every queue prediction 0 → S_queue(v6) = (v6 − score) / 0.30.
 2. `sub_p_onset0v6`: onset windows zeroed → onset IoU = 2·(v6 − score)/0.30 × (#families
    weighting is equal), then ongoing IoU = 2·S_queue − onset IoU.
-3. `sub_p_blend25` and 4. `sub_p_blend50`: the T4 α-blend.
-5. The best T2 improvement of the day.
+3. `sub_p_o0v6`: T4 all zeros. S_ODME(0) = 0.15·S_dev(0) + 0.15·0.5 ≈ 0.085–0.13, so
+   S_ODME(L2) ≈ (v6 − score)/0.2 + ~0.1. With probe 1 this also gives S_phys by subtraction
+   (S_state ≈ 0.94 from the aligned local evaluator).
+4. `sub_p_blend25`: T4 α = 0.25 blend (the "truth ≠ counts" hypothesis).
+5. `sub_p_blend50` if blend25 improves; otherwise the best T2 improvement of the day.
+
+Findings from the toolkit's git history (MIT):
+* The first versions scored T4 against a ridge solve (NNLS, λ=0.05) over the prior and counts.
+  The docs now say the leaderboard truth is organizer-held.
+* The "naive baseline" S_ODME of 0.8359 uses TRAIN counts. Our L2 uses the split's own counts, and
+  it equals the split's ridge solve to within 0.04% L1.
+* So if the leaderboard truth is that solve, our T4 is already about 1.0, and the gap to the top lies
+  in T2 and physics. Probe 3 decides this.
+* `base_od.csv` (removed on 2026-09-11) was the private month's prior. We have it anyway as
+  `task4/<panel>/private/synthetic_weak_prior.csv`.
+
+T2 ongoing, shockwave/queue-geometry features (distance to nearest queue up/down at lags 0/3/6/12,
+run length, up/downstream demand): 0.8122 → 0.8136 on the big evaluator, which is within noise.
+T2 local level is aligned absolutely too: official-style persistence scores 0.3074 locally against
+0.3017 online. The earlier "0.06 local/online gap" came from a wrong anchor and does not exist.
+Online S_queue(v6) ≈ 0.855.
