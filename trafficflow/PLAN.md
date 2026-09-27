@@ -271,3 +271,18 @@ they are in the release.
   0.6442 before. So the lift over persistence rises from +0.187 to +0.195.
 * **Expected Δ vs v6: about +0.005 to +0.007.** Onset +0.0195 and ongoing ≈ +0.025, so S_queue
   ≈ +0.022, times 0.30.
+
+## Candidate v7c (supersedes v7b; 2026-09-27 07:58 UTC)
+
+v7c = v7b with the T1 gap specialist retrained on 200k rows per panel (`t1gap200_*`, applied with
+`GAP_MODEL=t1gap200 python -m tfb.patch_gaps ...`). Gap-cell RMSE: speed 7.79 → 7.58, flow/lane
+79.1 → 77.4. That adds about +0.0003. **Expected Δ vs v6: +0.005 to +0.007.**
+
+Hypotheses checked and rejected on 2026-09-27:
+* Conservation-derived density. corr(ΔN, dt·(q_up − q + ramps)) is only 0.09–0.20, and the
+  topology flux sd (13–22) far exceeds the ΔN sd (1.4–3.4). This matches the docs, so the physics
+  floor holds.
+* Clean vs noisy T2 labels. Median-3 smoothing flips ≤ 0.1% of queue cells, so it is negligible.
+* Public notebooks (best 0.809) hold nothing new. The 0.809 notebook's v11→v13 step (only T4 → ridge
+  λ=0.05) gained +0.0108 online, consistent with the leaderboard truth ≈ the ridge solution, so T4 is
+  closed.

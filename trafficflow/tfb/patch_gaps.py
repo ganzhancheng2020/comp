@@ -11,7 +11,8 @@ from .t1_model import gap_rows, predict_rows
 
 src, dst = sys.argv[1], sys.argv[2]
 st = pd.read_csv(OUT / src)
-gm = {k: lgb.Booster(model_file=str(CACHE / f"t1gap_{k}.txt")) for k in ("speed", "flow")}
+import os
+gm = {k: lgb.Booster(model_file=str(CACHE / f"{os.environ.get('GAP_MODEL', 't1gap')}_{k}.txt")) for k in ("speed", "flow")}
 off = 0
 for p in panels():
     for s in ("validation", "private"):
