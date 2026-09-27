@@ -320,3 +320,22 @@ output is 6 steps × links. Dilated residual blocks, BCE weighted towards eligib
 Big evaluator, same test windows as the LightGBM: 8 epochs 0.805, **25 epochs 0.841**, against
 0.835 for LightGBM. The loss was still falling at 25 epochs.
 Next: `tfb/t2_blend_eval.py` (40 epochs, LightGBM + CNN blend weights 0–1).
+
+## Blend result and candidate v8 (2026-09-27 21:04 UTC)
+
+`tfb/t2_blend_eval.py`, same 5,805 test windows, 2-fold:
+
+| Ongoing | IoU |
+|---|---|
+| LightGBM (the v7c pipeline) | 0.8342 (0.8351 with a 0.5 threshold) |
+| CNN, 40 epochs | 0.8381 |
+| **0.5·LightGBM + 0.5·CNN, threshold 0.5** | **0.8483** |
+| 0.3·LightGBM + 0.7·CNN, threshold 0.5 | 0.8473 |
+
+The blend adds +0.014 on ongoing, so S_queue ≈ +0.007 and the total ≈ +0.002 on top of v7c.
+(The earlier blend run at 10:55 died silently from a memory-cgroup OOM while loading the full
+frame. The evaluator now reads per panel and keeps only the fold's rows as float32.)
+
+v8 (`tfb/t2_final.py`) = v7c with ongoing replaced by the blend. It is trained on all windows, with a
+25-epoch CNN. **Expected Δ vs v6: about +0.007 to +0.009.** If it is ready before 00:05 UTC, it
+replaces v7c as the day's single submission.
