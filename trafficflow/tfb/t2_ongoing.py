@@ -172,8 +172,10 @@ def history_arrays(g: pd.DataFrame, T0: pd.Timestamp, li: dict, L: int):
 def predict_windows(split: str, model=None) -> dict:
     """{window_id: (6, L) bool} for the ongoing windows of a split."""
     m, feats = model or fit_all()
+    bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
     out = {}
     for p in T2P:
+        bneck = sorted(bn[bn.panel == p].link)
         net = network(p)
         li = {x: i for i, x in enumerate(net.link_id)}
         vcut = 0.6 * net.free_speed_kmh.to_numpy()
@@ -183,7 +185,7 @@ def predict_windows(split: str, model=None) -> dict:
         for r in w[w.condition == "queue_ongoing"].itertuples():
             T0 = pd.Timestamp(r.forecast_origin)
             hs, hf = history_arrays(h[h.window_id == r.window_id], T0, li, len(net))
-            X = cell_features(hs, hf, vcut, cap, T0.hour * 12 + T0.minute // 5, T0.dayofweek)
+            X = cell_features(hs, hf, vcut, cap, T0.hour * 12 + T0.minute // 5, T0.dayofweek, margin=12, bneck=bneck)
             pred = np.zeros((6, len(net)), bool)
             if X is not None:
                 X["pid"] = T2P.index(p)

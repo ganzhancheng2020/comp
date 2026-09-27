@@ -110,3 +110,47 @@ def eval_models(verbose=True, onset_rounds=400, ongoing_rounds=600, ongoing_para
         for c in ("pers", "static", "model"):
             print(c, aggregate(r, c), flush=True)
     return r
+
+
+def eval_v7(rounds_ongoing: int = 1000):
+    """组织方 train 窗口上检查 v7 流程（onset v2 + 宽候选 ongoing），2 折按日奇偶。"""
+    import lightgbm as lgb
+    from . import t2_onset2 as o2, t2_ongoing as og
+    from .data import CACHE
+    don = pd.read_parquet(CACHE / "t2_onset.parquet")
+    don["pid"] = don.panel.map({p: i for i, p in enumerate(T2P)})
+    don = o2.add_cluster(don)
+    dog = pd.read_parquet(CACHE / "t2_ongoing.parquet")
+    dog["pid"] = dog.panel.map({p: i for i, p in enumerate(T2P)})
+    fog = [c for c in dog.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
+    par = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100, feature_fraction=0.8,
+               bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=4)
+    mon, mog = {}, {}
+    for f in (0, 1):
+        mon[f] = o2.fit(don[don.d % 2 != f])
+        b = dog[dog.d % 2 != f]
+        mog[f] = lgb.train(par, lgb.Dataset(b[fog], b.y, categorical_feature=["pid"]), rounds_ongoing)
+    cands = {p: sorted(don[don.panel == p].link.unique().tolist()) for p in T2P}
+    rows = []
+    for p in T2P:
+        net = network(p)
+        cap = net.capacity_vph.to_numpy()
+        cm = o2.clusters(cands[p])
+        for w in windows(p):
+            f = w["d"] % 2
+            pred = np.zeros_like(w["truth"])
+            if w["condition"] == "queue_onset":
+                X = o2.on.link_features(w["hs"], w["hf"], w["vcut"], cap, w["T"], cands[p], w["T0"].dayofweek)
+                X["pid"] = T2P.index(p)
+                X["panel"], X["d"], X["s"], X["cl"] = p, 0, 0, X.link.map(cm)
+                mc, ml, lf, cfeat = mon[f]
+                pred[5, o2.predict_event(X, mc, ml, lf, cfeat)] = True
+            else:
+                X = og.cell_features(w["hs"], w["hf"], w["vcut"], cap, w["T"], w["T0"].dayofweek, margin=12, bneck=cands[p])
+                if X is not None:
+                    X["pid"] = T2P.index(p)
+                    sel = og.decode(mog[f].predict(X[fog]))
+                    pred[X.k.to_numpy()[sel] - 1, X.link.to_numpy()[sel]] = True
+            rows.append(dict(panel=p, condition=w["condition"], v7=iou(pred, w["truth"], w["elig"])))
+    r = pd.DataFrame(rows)
+    return aggregate(r, "v7")

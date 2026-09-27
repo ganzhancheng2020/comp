@@ -218,3 +218,23 @@ the top is in T2 and/or T4; the probes above decide which.
   actual Δ in the calibration table.
 * The prebuilt diagnostic zips in `out/tfb/` (`sub_p_q0v6`, `sub_p_onset0v6`, `sub_p_o0v6`,
   `sub_p_blend*`) are not to be submitted.
+
+## Candidate v7 (built 2026-09-27 02:14 UTC; to be submitted after the 09-28 00:00 UTC reset)
+
+`out/tfb/sub_v7.zip` = v6 with the T2 predictions replaced by `queue_models3.csv`. T1 and T4 are
+unchanged.
+* Onset v2 (`tfb/t2_onset2.py`): a cluster-level model predicts which bottleneck cluster activates;
+  a link-level model conditioned on an active cluster predicts the links inside it; joint Monte-Carlo
+  decoding keeps within-cluster correlation.
+  Error analysis of v1: 82% of events were perfect; the loss split into over-prediction 0.040,
+  under-prediction 0.026 and wrong cluster 0.023. Most of the over-prediction was hedging across two
+  clusters, which the independent-link decoding causes.
+  Big evaluator: 0.898 → 0.9175.
+* Ongoing, wider candidate set: ±12 links plus all onset bottleneck links, with an `is_bneck` feature.
+  Error analysis: 34% of all errors were truth cells outside the old ±6 candidate set, from queue
+  extension beyond 6 links or new queues at other bottlenecks.
+  Big evaluator: 0.8136 → 0.8313. The shockwave features added +0.0014 of that.
+* Organizer train windows (2-fold, noisy): S_queue 0.8426 (onset 0.818, ongoing 0.867), against
+  0.833 for the v3/v4 pipeline. No regression.
+* **Expected Δ vs v6: about +0.004 to +0.006** (S_queue +0.019 × 0.30, rounded down for the noise
+  in the organizer windows).
