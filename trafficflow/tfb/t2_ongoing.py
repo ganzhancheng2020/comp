@@ -158,13 +158,19 @@ def load_frame():
 
 
 def fit_all(rounds: int = 1000):
+    import gc
     import lightgbm as lgb
     df = load_frame()
-    df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
+    df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)}).astype(np.int32)
     feats = [c for c in df.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
+    y = df.y.to_numpy()
+    X = df[feats].astype(np.float32)
+    del df
+    gc.collect()
+    ds = lgb.Dataset(X, y, categorical_feature=["pid"], free_raw_data=True)
     m = lgb.train(dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100,
                        feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=4),
-                  lgb.Dataset(df[feats], df.y, categorical_feature=["pid"]), rounds)
+                  ds, rounds)
     return m, feats
 
 

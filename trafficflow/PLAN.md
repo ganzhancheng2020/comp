@@ -261,3 +261,13 @@ Rules: Task 2 is defined as online ("at forecast origin T, participants receive 
 minutes"), and recovering hidden labels is prohibited.
 Observations after the post-horizon buffer (T+95 onwards) are therefore NOT used for T2, even though
 they are in the release.
+
+## Candidate v7b (supersedes v7; built 2026-09-27 07:42 UTC)
+
+`out/tfb/sub_v7b.zip` = v7, with the ongoing model trained on 6,000 windows per corridor instead of
+3,000. The training frame lives in per-panel parts (`data_tfb/cache/t2_ongoing_parts/`, 18.6M rows).
+* Learning curve: halving the 3k set gives 0.8171, the 3k set gives 0.8313, and the 6k set gives
+  0.8333. The 6k evaluation sample was slightly harder: its persistence baseline is 0.6381 against
+  0.6442 before. So the lift over persistence rises from +0.187 to +0.195.
+* **Expected Δ vs v6: about +0.005 to +0.007.** Onset +0.0195 and ongoing ≈ +0.025, so S_queue
+  ≈ +0.022, times 0.30.
