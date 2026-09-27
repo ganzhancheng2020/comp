@@ -19,7 +19,33 @@ def is_ongoing(hq: np.ndarray) -> bool:
     return hq.sum() >= 2 and hq.sum(0).max() >= 2
 
 
-def cell_features(hs, hf, vcut, cap, T, dow):
+def _nearest(q: np.ndarray):
+    """For a bool vector q over links: distance to the nearest True at or upstream (lower index) and at or
+    downstream (higher index); 99 when none."""
+    L = len(q)
+    idx = np.arange(L)
+    up = np.maximum.accumulate(np.where(q, idx, -1))
+    dn = np.minimum.accumulate(np.where(q, idx, L)[::-1])[::-1]
+    return np.where(up >= 0, idx - up, 99).astype(float), np.where(dn < L, dn - idx, 99).astype(float)
+
+
+def _runlen(q: np.ndarray):
+    """Length of the contiguous queued run each link belongs to (0 if not queued)."""
+    out = np.zeros(len(q))
+    i = 0
+    while i < len(q):
+        if q[i]:
+            j = i
+            while j < len(q) and q[j]:
+                j += 1
+            out[i:j] = j - i
+            i = j
+        else:
+            i += 1
+    return out
+
+
+def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True):
     """hs/hf: (13, L) visible history. Returns a frame over (candidate link, step k=1..6)."""
     L = hs.shape[1]
     r = hs / vcut[None, :]
@@ -40,6 +66,21 @@ def cell_features(hs, hf, vcut, cap, T, dow):
     for i in range(12, -1, -1):
         since = np.where(np.isnan(since) | (since == 13.0), np.where(hq[i], 12 - i, 13.0), since)
     nq = hq.sum(0)
+    extra = {}
+    if rich:
+        for lag in (0, 3, 6, 12):
+            ql = rf[12 - lag] <= 1.0
+            u, dnn = _nearest(ql)
+            extra[f"up_d{lag}"], extra[f"dn_d{lag}"] = u, dnn
+            extra[f"run{lag}"] = _runlen(ql)
+        extra["up_move6"] = extra["up_d6"] - extra["up_d0"]
+        extra["dn_move6"] = extra["dn_d6"] - extra["dn_d0"]
+        extra["run_growth6"] = extra["run0"] - extra["run6"]
+        pf = np.pad(ff[-1], 3, constant_values=np.nan)
+        pf6 = np.pad(ff[-7], 3, constant_values=np.nan)
+        extra["upq"] = np.array([np.nanmean(pf[l:l + 3]) for l in range(L)])
+        extra["upq_trend"] = extra["upq"] - np.array([np.nanmean(pf6[l:l + 3]) for l in range(L)])
+        extra["dnq"] = np.array([np.nanmean(pf[l + 4:l + 7]) for l in range(L)])
     rows = []
     padr = np.pad(rf[-1], MARGIN, constant_values=np.nan)
     padr3 = np.pad(rf[-4], MARGIN, constant_values=np.nan)
@@ -52,6 +93,8 @@ def cell_features(hs, hf, vcut, cap, T, dow):
                 "d_head": (l - head) if head >= 0 else 99, "d_tail": (l - tail) if tail >= 0 else 99,
                 "n_lastq": len(last_idx), "n_everq": int(everq.sum()), "tot_hq": int(hq.sum()),
                 "n_q_trend": int(hq[-1].sum()) - int(hq[-4].sum())}
+        for key, arr in extra.items():
+            base[key] = arr[l]
         for o in (-3, -2, -1, 1, 2, 3):
             base[f"nr{o}"] = padr[l + MARGIN + o]
             base[f"nr3_{o}"] = padr3[l + MARGIN + o]

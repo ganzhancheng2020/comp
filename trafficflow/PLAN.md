@@ -155,3 +155,21 @@ Test with the one-dimensional family f = (1−α)·f_L2 + α·b on top of v6:
 `sub_p_blend25` (α=0.25, local S_link 0.785, at most −0.011 total from S_link) and `sub_p_blend50`
 (α=0.5, S_link 0.569, at most −0.022). If either beats v6, move α toward the peak.
 Later: `sub_p_q0` (S_queue calibration).
+
+## Leaderboard position (2026-09-27 ~00:30 UTC): rank 19, 0.86864; the top is 0.92406 (gap 0.055)
+
+Gap attribution (estimated):
+* S_state ≈ 0.94: aligned, at the noise floor.
+* S_queue ≈ 0.79 online. Anchor: the official persistence baseline is 0.3017 on validation; adding
+  the v2 and v5 deltas gives ≈ 0.79. Local predicts ≈ 0.85, so there is a 0.06 local/online gap to
+  explain.
+* S_phys ≈ 0.7: bounded by the noise for everyone.
+* S_ODME ≈ 0.85–0.9.
+The gap is mostly in T2 and T4.
+
+Next-day submissions (base v6), revised:
+1. `sub_p_q0v6`: every queue prediction 0 → S_queue(v6) = (v6 − score) / 0.30.
+2. `sub_p_onset0v6`: onset windows zeroed → onset IoU = 2·(v6 − score)/0.30 × (#families
+   weighting is equal), then ongoing IoU = 2·S_queue − onset IoU.
+3. `sub_p_blend25` and 4. `sub_p_blend50`: the T4 α-blend.
+5. The best T2 improvement of the day.
