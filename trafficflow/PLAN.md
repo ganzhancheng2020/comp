@@ -311,3 +311,12 @@ We do NOT use this: Task 2 is defined as online (60-minute history), and recover
 prohibited. The account holder could ask the organizers in the competition forum whether
 post-buffer observations are allowed for Task 2. If they rule they are allowed, it becomes a large
 and legitimate lever. Until then we stay within the documented information set.
+
+## Ongoing CNN (`tfb/t2_cnn.py`, 2026-09-27)
+
+A 1-D fully-convolutional net over links. The input is the 13-step history × channels (speed
+ratio, flow/cap, queue flag, missing flag, bottleneck flag, position, tod, dow, panel one-hot); the
+output is 6 steps × links. Dilated residual blocks, BCE weighted towards eligible cells.
+Big evaluator, same test windows as the LightGBM: 8 epochs 0.805, **25 epochs 0.841**, against
+0.835 for LightGBM. The loss was still falling at 25 epochs.
+Next: `tfb/t2_blend_eval.py` (40 epochs, LightGBM + CNN blend weights 0–1).
