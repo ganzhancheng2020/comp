@@ -45,7 +45,7 @@ def _runlen(q: np.ndarray):
     return out
 
 
-def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True):
+def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | None = None, bneck=()):
     """hs/hf: (13, L) visible history. Returns a frame over (candidate link, step k=1..6)."""
     L = hs.shape[1]
     r = hs / vcut[None, :]
@@ -57,7 +57,9 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True):
     q_idx = np.where(everq | lastq)[0]
     if len(q_idx) == 0:
         return None
-    cand = np.unique(np.clip(np.concatenate([q_idx + o for o in range(-MARGIN, MARGIN + 1)]), 0, L - 1))
+    mg = MARGIN if margin is None else margin
+    cand = np.unique(np.clip(np.concatenate([q_idx + o for o in range(-mg, mg + 1)] + [np.asarray(bneck, int)]), 0, L - 1))
+    bset = set(int(x) for x in bneck)
     last_idx = np.where(lastq)[0]
     head = last_idx.max() if len(last_idx) else -1
     tail = last_idx.min() if len(last_idx) else -1
@@ -86,7 +88,7 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True):
     padr3 = np.pad(rf[-4], MARGIN, constant_values=np.nan)
     padq = np.pad(lastq.astype(float), MARGIN)
     for l in cand:
-        base = {"link": l, "tod": T, "dow": dow, "lpos": l / L,
+        base = {"link": l, "tod": T, "dow": dow, "lpos": l / L, "is_bneck": float(int(l) in bset),
                 "r0": rf[-1, l], "r1": rf[-2, l], "r3": rf[-4, l], "r6": rf[-7, l], "r12": rf[0, l],
                 "q0": ff[-1, l], "q3": ff[-4, l],
                 "since": since[l], "nq_hist": nq[l], "lastq": float(lastq[l]),
@@ -104,7 +106,7 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True):
     return pd.DataFrame(rows)
 
 
-def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0):
+def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, margin: int | None = None, bneck=()):
     rng = np.random.default_rng(seed)
     z = load(panel, "train")
     Q, vcut = queue_truth(panel, z=z)
@@ -119,7 +121,7 @@ def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0):
             fut = Q[d, T + 1:T + 7]
             if not fut.any() or not is_ongoing(hq) or rng.random() > keep:
                 continue
-            X = cell_features(hsd[T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d])
+            X = cell_features(hsd[T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], margin=margin, bneck=bneck)
             if X is None:
                 continue
             X["y"] = fut[X.k.to_numpy() - 1, X.link.to_numpy()].astype(int)
