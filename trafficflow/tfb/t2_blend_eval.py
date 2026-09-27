@@ -25,27 +25,36 @@ for p in T2P:
 store = {}  # (panel, d, T) -> dict(lgb=map, cnn=map)
 for f in (0, 1):
     t0 = time.time()
-    # ---- LightGBM
-    parts = []
+    # ---- LightGBM (memory-lean: per-panel read, keep only this fold's train rows as float32)
+    Xs, ys, feats = [], [], None
     for p in T2P:
         t = pq.read_table(CACHE / "t2_ongoing_parts" / f"{p}.parquet").to_pandas()
-        parts.append(t)
-    df = pd.concat(parts, ignore_index=True)
-    del parts
-    df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)}).astype(np.int32)
-    feats = [c for c in df.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
-    tr = df.d.to_numpy() % 2 != f
-    m = lgb.train(PAR, lgb.Dataset(df.loc[tr, feats].astype(np.float32), df.y.to_numpy()[tr], categorical_feature=["pid"]), 1000)
+        t["pid"] = np.int32(T2P.index(p))
+        if feats is None:
+            feats = [c for c in t.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
+        m_ = t.d.to_numpy() % 2 != f
+        Xs.append(t.loc[m_, feats].to_numpy(np.float32))
+        ys.append(t.y.to_numpy()[m_])
+        del t
+        gc.collect()
+    X = np.concatenate(Xs); y = np.concatenate(ys); del Xs, ys
+    ds = lgb.Dataset(X, y, feature_name=feats, categorical_feature=["pid"], free_raw_data=True)
+    m = lgb.train(PAR, ds, 1000)
+    del X, y, ds
+    gc.collect()
     for p in T2P:
+        t = pq.read_table(CACHE / "t2_ongoing_parts" / f"{p}.parquet").to_pandas()
+        t["pid"] = np.int32(T2P.index(p))
         wt = wins_test[p][wins_test[p].d % 2 == f]
-        g = df[(df.panel == p)].merge(wt, on=["d", "T"])
-        g = g.assign(pr=m.predict(g[feats].astype(np.float32)))
+        g = t.merge(wt, on=["d", "T"])
+        del t
+        g = g.assign(pr=m.predict(g[feats].to_numpy(np.float32)))
         L = len(load(p, "validation")["links"])
         for (d, T), gg in g.groupby(["d", "T"]):
             mp = np.zeros((6, L), np.float32)
             mp[gg.k.to_numpy() - 1, gg.link.to_numpy()] = gg.pr.to_numpy()
             store[(p, d, T)] = {"lgb": mp}
-    del df, m
+    del m
     gc.collect()
     print("fold", f, "lgb done", round(time.time() - t0), "s", flush=True)
     # ---- CNN
