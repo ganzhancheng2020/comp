@@ -138,3 +138,20 @@ T4 proxy that was rejected: "similarity to another split's prior". It ranks KL a
 the structure the priors share; it is sparser and more concentrated, and T4 can only be judged online.
 Log prior = gravity fit (R² 0.75) + residual with sd 0.6. The residuals of different splits'
 priors are uncorrelated (≈0.03).
+
+## 2026-09-27 submissions
+
+| Sub | Change (one factor) | Public LB | Δ | Reading |
+|---|---|---|---|---|
+| v5 | v4 + retuned T2 | 0.86784 | +0.0053 vs v4 | Local predicted +0.0065, so the big T2 evaluators align |
+| v6 | v5 + full-train T1 | **0.86864** | +0.0008 vs v5 | Best so far; the previous public top was 0.86711 |
+| p_sl2 | v4, T4 prior rescaled then L2 | 0.80288 | ΔS_ODME −0.30 | Truth mass is near the raw prior level, not the counts-scaled level |
+| p_plen | v4, T4 per-path constant shift | 0.83983 | ΔS_ODME −0.11 | Plain L2's per-link accumulation is better |
+| p_geo | v4, T4 pooled prior across splits | 0.81225 | ΔS_ODME −0.25 | Truth follows its own split's prior |
+
+New T4 hypothesis: the prior loads ~2× the counts, but the truth mass is near the prior. So f* may not
+satisfy A f* = c exactly, and exact projection trades S_od (0.45) for S_link (0.25).
+Test with the one-dimensional family f = (1−α)·f_L2 + α·b on top of v6:
+`sub_p_blend25` (α=0.25, local S_link 0.785, at most −0.011 total from S_link) and `sub_p_blend50`
+(α=0.5, S_link 0.569, at most −0.022). If either beats v6, move α toward the peak.
+Later: `sub_p_q0` (S_queue calibration).
