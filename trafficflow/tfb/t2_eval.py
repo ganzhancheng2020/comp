@@ -120,7 +120,7 @@ def eval_v7(rounds_ongoing: int = 1000):
     don = pd.read_parquet(CACHE / "t2_onset.parquet")
     don["pid"] = don.panel.map({p: i for i, p in enumerate(T2P)})
     don = o2.add_cluster(don)
-    dog = pd.read_parquet(CACHE / "t2_ongoing.parquet")
+    dog = og.load_frame()
     dog["pid"] = dog.panel.map({p: i for i, p in enumerate(T2P)})
     fog = [c for c in dog.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
     par = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100, feature_fraction=0.8,

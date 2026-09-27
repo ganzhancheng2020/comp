@@ -148,9 +148,18 @@ def decode(p: np.ndarray, extra_true: float = 0.0) -> np.ndarray:
     return sel
 
 
+def load_frame():
+    """Training frame: per-panel parts if present (memory-friendly), else the single parquet."""
+    import pyarrow.parquet as pq
+    parts = CACHE / "t2_ongoing_parts"
+    if parts.exists():
+        return pq.read_table(parts).to_pandas(split_blocks=True, self_destruct=True)
+    return pd.read_parquet(CACHE / "t2_ongoing.parquet")
+
+
 def fit_all(rounds: int = 1000):
     import lightgbm as lgb
-    df = pd.read_parquet(CACHE / "t2_ongoing.parquet")
+    df = load_frame()
     df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
     feats = [c for c in df.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")]
     m = lgb.train(dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100,

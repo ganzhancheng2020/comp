@@ -69,7 +69,7 @@ def run_ongoing(params=None, rounds=600, decode=None, feat_drop=(), max_windows=
     持续性 IoU（eligible）<= 0.9。IoU 只算 eligible 格，含候选集外的真值格。2 折按日奇偶。"""
     from . import t2_ongoing as og
     from .t2_events import queue_truth
-    df = pd.read_parquet(CACHE / "t2_ongoing.parquet")
+    df = og.load_frame()
     df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
     feats = [c for c in df.columns if c not in ("y", "d", "T", "panel", "n_fut_total", "n_fut_out") and c not in feat_drop]
     par = dict(objective="binary", learning_rate=0.05, num_leaves=63, min_data_in_leaf=200, feature_fraction=0.8,
