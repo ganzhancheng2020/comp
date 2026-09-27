@@ -192,3 +192,16 @@ run length, up/downstream demand): 0.8122 → 0.8136 on the big evaluator, which
 T2 local level is aligned absolutely too: official-style persistence scores 0.3074 locally against
 0.3017 online. The earlier "0.06 local/online gap" came from a wrong anchor and does not exist.
 Online S_queue(v6) ≈ 0.855.
+
+Physics, local estimate (`tfb/t3_proxy.py`: official S_FD plus the S_LWR proxy):
+
+| Prediction | S_FD | S_LWR proxy | S_phys |
+|---|---|---|---|
+| truth | 0.99 | 1.00 | 0.997 (the official perfect answer gets 0.96 online) |
+| LightGBM | 0.99 | 0.60–0.63 | 0.73–0.75 |
+| interp | 0.99 | 0.52–0.53 | 0.68 |
+
+The noise in log v and log q is independent (residual correlation ≈ 0.00), so k = q/v carries both
+(2nd-difference sd of log k is 0.059, against 0.055 for log q). There is no smoother density to
+exploit, and the S_LWR floor is the same for everyone at T1 ≈ noise floor. So the remaining gap to
+the top is in T2 and/or T4; the probes above decide which.
