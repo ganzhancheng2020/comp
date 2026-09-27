@@ -238,3 +238,26 @@ unchanged.
   0.833 for the v3/v4 pipeline. No regression.
 * **Expected Δ vs v6: about +0.004 to +0.006** (S_queue +0.019 × 0.30, rounded down for the noise
   in the organizer windows).
+
+## T4 closed (2026-09-27): a local proxy that reproduces all five online points
+
+l2dev = ‖f − b‖₂ / ‖b‖₂ (relative L2 deviation from the split's own prior, family-averaged).
+
+| Method | l2dev | Online ΔS_ODME | −0.95·Δl2dev |
+|---|---|---|---|
+| L2 | 0.190 | 0 | 0 |
+| plen | 0.303 | −0.114 | −0.107 |
+| KL | 0.349 | −0.151 | −0.151 |
+| geo | 0.456 | −0.250 | −0.253 |
+| sl2 | 0.507 | −0.300 | −0.301 |
+
+Over the feasible set {Af = c, f ≥ 0}, the L2 projection minimises l2dev by construction, so it is
+optimal under this proxy.
+Blending towards the prior trades S_link for l2dev and loses: about −0.004 at α = 0.1 and −0.009 at
+α = 0.25.
+**T4 is closed: keep L2, no more T4 submissions.**
+
+Rules: Task 2 is defined as online ("at forecast origin T, participants receive the previous 60
+minutes"), and recovering hidden labels is prohibited.
+Observations after the post-horizon buffer (T+95 onwards) are therefore NOT used for T2, even though
+they are in the release.
