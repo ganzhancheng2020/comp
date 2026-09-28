@@ -394,3 +394,13 @@ of the speed MSE; on D12_I5_N they carry 36% of the |N| error that drives S_LWR.
 upper bound is 3.3–4.7 km/h (2nd difference, against 1.45–2.1 in free flow), and our congested RMSE
 is 4.0–4.4, which is at that floor. So congestion is saturated too, and there is nothing to gain in
 T1 or physics there.
+
+T4 ridge-λ sweep (2026-09-28). The l2dev proxy extrapolated to S_link < 1 favours a larger λ:
+λ_rel 0.05 gives +0.0034 S_ODME. But the 0.809 public notebook contradicts it: dropping S_link only
+0.0127 below the λ=0.05 ridge cost that team 0.054 S_ODME online. So the proxy does not extrapolate
+off the feasible set, and the truth ≈ the λ=0.05 ridge. T4 stays at L2 (≈ that ridge); it is
+closed for good.
+
+In progress: ongoing features for episode duration (`early_features`: episode age, queued counts
+earlier today, time since the last queue, 3-hour queued fraction, all from the masked layer before
+T−60). Frame `t2_ongoing_parts_early`, evaluated against 0.8333 on the same windows.

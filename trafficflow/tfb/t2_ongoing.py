@@ -45,7 +45,28 @@ def _runlen(q: np.ndarray):
     return out
 
 
-def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | None = None, bneck=()):
+def early_features(mspeed_day: np.ndarray, T: int, vcut: np.ndarray) -> dict:
+    """Causal features from the masked layer before T-60 (the same layer is published for validation/private)."""
+    e = max(T - 12, 0)
+    L = mspeed_day.shape[1]
+    if e == 0:
+        return {"ep_age": 0.0, "e_q_cnt": np.zeros(L), "e_since": np.full(L, 288.0), "e_frac3h": np.zeros(L)}
+    q = np.nan_to_num(mspeed_day[:e] <= vcut[None, :]).astype(bool)
+    anyq = q.any(1)
+    age = 0
+    for i in range(e - 1, -1, -1):
+        if not anyq[i]:
+            break
+        age += 1
+    idx = np.arange(e)
+    last = np.where(q, idx[:, None], -1).max(0)
+    lo = max(0, e - 36)
+    return {"ep_age": float(age), "e_q_cnt": q.sum(0).astype(float),
+            "e_since": np.where(last >= 0, e - last, 288).astype(float),
+            "e_frac3h": q[lo:].mean(0) if e > lo else np.zeros(L)}
+
+
+def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | None = None, bneck=(), early=None):
     """hs/hf: (13, L) visible history. Returns a frame over (candidate link, step k=1..6)."""
     L = hs.shape[1]
     r = hs / vcut[None, :]
@@ -97,6 +118,9 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | No
                 "n_q_trend": int(hq[-1].sum()) - int(hq[-4].sum())}
         for key, arr in extra.items():
             base[key] = arr[l]
+        if early is not None:
+            base["ep_age"] = early["ep_age"]
+            base["e_q_cnt"], base["e_since"], base["e_frac3h"] = early["e_q_cnt"][l], early["e_since"][l], early["e_frac3h"][l]
         for o in (-3, -2, -1, 1, 2, 3):
             base[f"nr{o}"] = padr[l + MARGIN + o]
             base[f"nr3_{o}"] = padr3[l + MARGIN + o]
@@ -106,7 +130,7 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | No
     return pd.DataFrame(rows)
 
 
-def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, margin: int | None = None, bneck=()):
+def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, margin: int | None = None, bneck=(), use_early: bool = False):
     rng = np.random.default_rng(seed)
     z = load(panel, "train")
     Q, vcut = queue_truth(panel, z=z)
@@ -121,7 +145,8 @@ def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, m
             fut = Q[d, T + 1:T + 7]
             if not fut.any() or not is_ongoing(hq) or rng.random() > keep:
                 continue
-            X = cell_features(hsd[T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], margin=margin, bneck=bneck)
+            X = cell_features(hsd[T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], margin=margin, bneck=bneck,
+                              early=early_features(z["m_speed"][d], T, vcut) if use_early else None)
             if X is None:
                 continue
             X["y"] = fut[X.k.to_numpy() - 1, X.link.to_numpy()].astype(int)
@@ -151,7 +176,8 @@ def decode(p: np.ndarray, extra_true: float = 0.0) -> np.ndarray:
 def load_frame():
     """Training frame: per-panel parts if present (memory-friendly), else the single parquet."""
     import pyarrow.parquet as pq
-    parts = CACHE / "t2_ongoing_parts"
+    import os
+    parts = CACHE / os.environ.get("TFB_ONGOING_PARTS", "t2_ongoing_parts")
     if parts.exists():
         return pq.read_table(parts).to_pandas(split_blocks=True, self_destruct=True)
     return pd.read_parquet(CACHE / "t2_ongoing.parquet")
