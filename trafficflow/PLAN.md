@@ -404,3 +404,14 @@ closed for good.
 In progress: ongoing features for episode duration (`early_features`: episode age, queued counts
 earlier today, time since the last queue, 3-hour queued fraction, all from the masked layer before
 T−60). Frame `t2_ongoing_parts_early`, evaluated against 0.8333 on the same windows.
+
+## v9b submitted 2026-09-28 ~08:00 UTC: **0.87104 (new best)**
+
+v9b = v8 T1/T4 + `queue_models7` (onset mixture + ongoing 0.5·LightGBM + 0.5·mean of four CNN
+seeds). It was submitted mainly so that the best-expected-value model is eligible for the final
+private selection.
+Local expected Δ vs v8 was +0.0015–0.002; online Δ vs v8 is +0.0026 (vs v6: +0.0024). Consistent
+within noise.
+Leak check: T2 uses only the 60-minute history; T1 uses only the published masked layer; T4 uses
+only the split's own prior and counts. No post-buffer observations and no hidden labels.
+Final-selection candidates so far: v9b (best local EV and best public), then v8.
