@@ -374,3 +374,17 @@ Diagnosis:
   deviations and bugs.
 * A weak warning sign existed: onset v2 scored 0.818 on the organizer train windows against 0.828
   for the old model (n=40, SE ≈ 0.04). It is kept in mind, but not acted on alone.
+
+## 2026-09-28 03:30 UTC: v9 / queue_models7 (current best local candidate, not submitted)
+
+* v9 (`sub_v9.zip`, `queue_models6.csv`): ongoing = 0.5·LightGBM + 0.5·mean of four CNN seeds,
+  threshold 0.5. Local vs v8: ongoing about +0.004–0.006, total ≈ +0.001. Below the +0.003 threshold,
+  so it is held.
+* Onset mixture (`predict_event_mix`: 70% cluster-level v2 joint samples + 30% old independent link
+  model). Big evaluator: v2 alone 0.9147, **mix 0.3 0.9179**, mix 0.5 0.9157, old alone 0.9010.
+  On validation/private it changes almost nothing (99.99% agreement). `queue_models7.csv` = v9 + mix.
+* Month adaptation (mine events from the observed parts of validation/private): rejected. Cluster
+  shares per train month vary within binomial noise (≈30 events per month, sd ≈ 0.09).
+
+Status: the local T2 headroom is nearly used up. The next submission should bundle queue_models7
+with any further gain; the combined local expectation vs v8 is ≈ +0.0015–0.002.
