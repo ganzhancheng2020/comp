@@ -356,3 +356,21 @@ replaces v7c as the day's single submission.
 The seed ensemble adds ≈ +0.003–0.005 on ongoing over v8.
 v9 production (`tfb/t2_final2.py`): LightGBM maps plus four CNN seeds (0 is saved; 1, 2 and 3 are
 being trained), with the maps cached in `t2_final_maps.pkl`. Output: `queue_models6.csv`.
+
+## v8 submitted 2026-09-28 00:06 UTC: 0.86849 (v6 0.86864). Expected +0.007–0.009, got −0.00015
+
+Diagnosis:
+* No bug. Per-window agreement between the v6 and v8 T2 predictions on validation is IoU 0.80
+  (onset) and 0.88 (ongoing). A handful of onset windows switch cluster, and a few ongoing windows
+  predict larger areas.
+* **The public-LB T2 sample is too small to resolve these gains.** Bootstrapping the big-eval
+  per-window deltas (blend − LightGBM, ongoing: mean +0.015, sd 0.097) at the public-LB size
+  (5 windows per panel-condition): ongoing ΔIoU has mean +0.013 and sd 0.017, and P(Δ ≤ 0) = 0.21.
+  Onset (0/1 flips) is noisier still. A ~0 online delta is therefore not evidence against the
+  change.
+* The private LB (April) has the same 80-window size. The expected private gain is what the
+  thousand-window local evaluators measure. **Choose the final private submissions by local
+  expected value, not by public-LB differences of ±0.003.** Use the public LB only to catch large
+  deviations and bugs.
+* A weak warning sign existed: onset v2 scored 0.818 on the organizer train windows against 0.828
+  for the old model (n=40, SE ≈ 0.04). It is kept in mind, but not acted on alone.
