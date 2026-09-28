@@ -388,3 +388,9 @@ Diagnosis:
 
 Status: the local T2 headroom is nearly used up. The next submission should bundle queue_models7
 with any further gain; the combined local expectation vs v8 is ≈ +0.0015–0.002.
+
+T1 congestion check (2026-09-28). Congested cells (speed < 0.8·v_free) are 4.4% of targets and 28%
+of the speed MSE; on D12_I5_N they carry 36% of the |N| error that drives S_LWR. But their white-noise
+upper bound is 3.3–4.7 km/h (2nd difference, against 1.45–2.1 in free flow), and our congested RMSE
+is 4.0–4.4, which is at that floor. So congestion is saturated too, and there is nothing to gain in
+T1 or physics there.
