@@ -677,3 +677,7 @@ val/private with the full-train model. Mean over panels:
   no_link −0.033 ± 0.010. Link identity still helps. Dropping tod is not significant; not adopted yet.
 * Decoding calibration (temperature τ, shrinkage to cluster base rates): private improves (0.766 → 0.79), validation
   worsens (→ 0.70–0.75). The splits disagree, and pooled everything is ≈ 0.764. v9b decoding stays.
+* Ensemble (`tfb/t2_onset_shift_ens.py`: pooled MC samples, v9b weight 1−w, no-tod weight w), paired out-of-scenario
+  deltas vs v9b: w=0.3 +0.006 ± 0.007; **w=0.5 +0.022 ± 0.012** (private +0.046, validation −0.005); w=0.7 +0.022 ± 0.014.
+  In scenario −0.016. The whole gain comes from private; validation is flat. Choosing it by private events would
+  tune the April model on April data, so it stays a candidate, not adopted. Decision after the ongoing comparison.
