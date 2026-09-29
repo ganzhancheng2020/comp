@@ -646,3 +646,9 @@ the train-fitted and the oracle set), so the private onset expectation is closer
   even though no prediction consumes it).
 * Final selection: keep **v9b + P2**. Public deltas between them (−0.0018) are below one SE of the 80-window
   public T2 sample, and the local expected value favours the origin-row fix.
+
+**Decisions (account holder, 2026-09-29 05:20 UTC):**
+1. Events mined from the val/private masked layer may be used **for evaluation only** (no prediction reads
+   post-origin data). Tool: `tfb/t2_onset_shift.py`.
+2. Same-day pre-origin masked-layer features (the early/episode features in P2) are allowed: they come before the
+   origin, so they are not a leak.
