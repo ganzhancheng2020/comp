@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from .data import CACHE, load, network
 from .t2 import T2_PANELS as T2P
-from .t2_events import queue_truth
+from .t2_events import queue_truth, visible
 from .t2_ongoing import is_ongoing
 
 torch.set_num_threads(4)
@@ -63,7 +63,7 @@ def panel_windows(panel: str, wins: pd.DataFrame):
     X, Y, E = [], [], []
     for d, T in zip(wins.d.to_numpy(), wins["T"].to_numpy()):
         early = early_channels(z["m_speed"][d], T, vcut) if EARLY else None
-        X.append(window_tensor(z["speed"][d, T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], bmask, pid,
+        X.append(window_tensor(visible(z["speed"][d], T), visible(z["flow"][d], T), vcut, cap, T, dow[d], bmask, pid,
                                early))
         Y.append(Q[d, T + 1:T + 7])
         E.append(z["elig"][d, T + 1:T + 7] == 1)

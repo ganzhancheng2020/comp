@@ -47,7 +47,7 @@ for f in (0, 1):
             tru = Q[d, T + 1:T + 7] & e
             if not tru.any():
                 continue
-            last = pd.DataFrame(z["speed"][d, T - 12:T + 1] / vc).ffill().to_numpy()[-1] <= 1
+            last = pd.DataFrame(z["speed"][d, T - 12:T] / vc).ffill().to_numpy()[-1] <= 1
             pers = np.repeat(last[None], 6, 0) & e
 
             def sc(pred):

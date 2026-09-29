@@ -12,11 +12,12 @@ from .t2 import T2_PANELS as T2P
 from .t2_events import queue_truth
 
 PARTS = CACHE / (sys.argv[1] if len(sys.argv) > 1 else "t2_ongoing_parts")
+TEST = CACHE / (sys.argv[2] if len(sys.argv) > 2 else PARTS.name)   # test rows may come from another frame
 PAR = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100, feature_fraction=0.8,
            bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=4)
 wins_test = {}
 for p in T2P:
-    w = pq.read_table(PARTS / f"{p}.parquet", columns=["d", "T"]).to_pandas().drop_duplicates()
+    w = pq.read_table(TEST / f"{p}.parquet", columns=["d", "T"]).to_pandas().drop_duplicates()
     wins_test[p] = w.sample(min(len(w), 1500), random_state=0)
 maps = {}
 for f in (0, 1):
@@ -33,8 +34,11 @@ for f in (0, 1):
     m = lgb.train(PAR, lgb.Dataset(X, y, feature_name=feats, categorical_feature=["pid"], free_raw_data=True), 1000)
     del X, y; gc.collect()
     for p in T2P:
-        t = pq.read_table(PARTS / f"{p}.parquet").to_pandas()
+        t = pq.read_table(TEST / f"{p}.parquet").to_pandas()
         t["pid"] = np.int32(T2P.index(p))
+        for c in feats:
+            if c not in t.columns:
+                t[c] = np.nan
         g = t.merge(wins_test[p][wins_test[p].d % 2 == f], on=["d", "T"]); del t
         g = g.assign(pr=m.predict(g[feats].to_numpy(np.float32)))
         L = len(load(p, "validation")["links"])
@@ -53,7 +57,7 @@ for p in T2P:
         e = el[d, T + 1:T + 7]; tru = Q[d, T + 1:T + 7] & e
         if not tru.any():
             continue
-        last = pd.DataFrame(z["speed"][d, T - 12:T + 1] / vc).ffill().to_numpy()[-1] <= 1
+        last = pd.DataFrame(z["speed"][d, T - 12:T] / vc).ffill().to_numpy()[-1] <= 1
         pers = np.repeat(last[None], 6, 0) & e
 
         def sc(pr):
@@ -63,4 +67,4 @@ for p in T2P:
         rows.append(dict(panel=p, pers=sc(pers), lgb_thr=sc(mp > 0.5)))
 r = pd.DataFrame(rows)
 pm = r.drop(columns="panel").groupby(r.panel).mean()
-print("LEAN", PARTS.name, pm.mean().round(4).to_dict(), len(r), flush=True)
+print("LEAN train", PARTS.name, "test", TEST.name, pm.mean().round(4).to_dict(), len(r), flush=True)

@@ -52,3 +52,11 @@ def best_static_set(events, n_links: int, max_size: int = 40):
         cur = cur | {c}
         best = (v, set(cur))
     return best
+
+
+def visible(a_day, T):
+    """History as published in window_history: slots T-60..T-5 (12 rows) plus the origin row T, which is NEVER
+    published, so it is returned as NaN. Shape (13, L), same layout as before."""
+    h = np.array(a_day[T - 12:T + 1], dtype=float, copy=True)
+    h[-1] = np.nan
+    return h

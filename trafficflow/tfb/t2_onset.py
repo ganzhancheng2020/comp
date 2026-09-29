@@ -9,7 +9,7 @@ import warnings
 from .data import CACHE, REL, load, network
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-from .t2_events import onset_events, queue_truth
+from .t2_events import onset_events, queue_truth, visible
 
 HIST = 13  # slots T-60 .. T
 
@@ -54,7 +54,7 @@ def train_frame(panel: str):
         T = s - 6
         if T - 12 < 0:
             continue
-        hs, hf = z["speed"][d, T - 12:T + 1], z["flow"][d, T - 12:T + 1]
+        hs, hf = visible(z["speed"][d], T), visible(z["flow"][d], T)   # origin row T is never published
         X = link_features(hs, hf, vcut, cap, T, cand, dow[d])
         X["y"] = X.link.isin(ls).astype(int)
         X["d"], X["s"], X["panel"] = d, s, panel

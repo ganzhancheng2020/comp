@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .data import CACHE, REL, load, network
-from .t2_events import queue_truth
+from .t2_events import queue_truth, visible
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 T2P = ["D7_I10_E", "D7_I10_W", "D7_I210_E", "D7_I210_W", "D7_I405_N", "D7_I405_S", "D12_I5_N", "D12_I5_S"]
@@ -141,11 +141,11 @@ def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, m
         hsd = z["speed"][d]
         vis_q = hsd <= vcut[None, :]
         for T in range(12 + rng.integers(stride), 288 - 6, stride):
-            hq = vis_q[T - 12:T + 1]
+            hq = vis_q[T - 12:T]            # the origin row T is never published
             fut = Q[d, T + 1:T + 7]
             if not fut.any() or not is_ongoing(hq) or rng.random() > keep:
                 continue
-            X = cell_features(hsd[T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], margin=margin, bneck=bneck,
+            X = cell_features(visible(hsd, T), visible(z["flow"][d], T), vcut, cap, T, dow[d], margin=margin, bneck=bneck,
                               early=early_features(z["m_speed"][d], T, vcut) if use_early else None)
             if X is None:
                 continue
