@@ -3,6 +3,7 @@ decode by expected IoU. Evaluation only (masked-layer events, see t2_onset_shift
 """
 from __future__ import annotations
 
+import os
 import pickle
 
 import numpy as np
@@ -40,8 +41,12 @@ def decode_pool(es, ws, n_mc=800, rng=None):
     return set(es[0]["link"][order[:bk]].tolist())
 
 
+FRAME = os.environ.get("TFB_ONSET_FRAME", "t2_onset.parquet")   # t2_onset_withT.parquet = the online v9b onset
+FRAME_TAG = "" if FRAME == "t2_onset.parquet" else "_" + FRAME.replace(".parquet", "")
+
+
 def cached(name, df, cands, cms, drop):
-    path = CACHE / f"t2_onset_shift_probs{name}.pkl"
+    path = CACHE / f"t2_onset_shift_probs{name}{FRAME_TAG}.pkl"
     if path.exists():
         return pickle.load(open(path, "rb"))
     full = fit_general(df, drop=drop)
@@ -58,7 +63,7 @@ def cached(name, df, cands, cms, drop):
 
 
 def main():
-    df = pd.read_parquet(CACHE / "t2_onset.parquet")
+    df = pd.read_parquet(CACHE / FRAME)
     df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
     df = o2.add_cluster(df)
     cands = {p: sorted(df[df.panel == p].link.unique().tolist()) for p in T2P}

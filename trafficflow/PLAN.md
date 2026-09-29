@@ -681,3 +681,40 @@ val/private with the full-train model. Mean over panels:
   deltas vs v9b: w=0.3 +0.006 ± 0.007; **w=0.5 +0.022 ± 0.012** (private +0.046, validation −0.005); w=0.7 +0.022 ± 0.014.
   In scenario −0.016. The whole gain comes from private; validation is flat. Choosing it by private events would
   tune the April model on April data, so it stays a candidate, not adopted. Decision after the ongoing comparison.
+
+### Ongoing under scenario shift (`tfb/t2_ongoing_shift.py`; 1,181 val + 1,121 private masked-layer windows)
+
+| Ongoing IoU | private | validation | paired Δ vs v9b |
+|---|---|---|---|
+| v9b (old LightGBM + old 4-seed CNN) | 0.8749 | 0.8733 | – |
+| **P1 (fixed LightGBM + old CNN)** | **0.8813** | **0.8772** | **+0.0046 ± 0.0012** (pri +0.0056, val +0.0037) |
+| P2 (fixed LightGBM + early CNN, 2 seeds) | 0.8701 | 0.8749 | −0.0023 ± 0.0020 (pri −0.0058) |
+
+The fixed LightGBM gains +0.005 out of scenario (vs +0.02–0.03 in scenario). The early-channel 2-seed CNN is
+worse out of scenario (−0.007, private −0.014). **P2 leaves the final candidates; P1 replaces it.**
+
+### The online v9b onset also suffers from the origin-row mismatch (found 2026-09-29 ~11:30 UTC)
+
+The online v9b onset was trained on `t2_onset_withT.parquet` (T row present). Out of scenario, with the realistic
+input (T row missing), it scores **0.721 (val) / 0.722 (pri)**, which matches the online onset estimate (≈ 0.72). The
+refit on the visible history (`t2_onset.parquet`) scores 0.765 / 0.766: **paired +0.038 ± 0.012 (val +0.032,
+pri +0.044), in scenario +0.055**. The earlier "+0.001" estimate compared each model on its own input and was
+wrong. The pooled ensemble with the no-tod variant (w=0.5) vs online v9b: +0.060 ± 0.017 (val +0.027, pri +0.089).
+Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's onset exactly (0 cells differ).
+
+### Pre-registered submissions for 2026-09-30 UTC
+
+**V10a: breakthrough/probe, "the origin-row fix on onset + P1 ongoing"** (`sub_v10a.zip`, `queue_models12_v10a.csv`)
+* Change vs v9b: onset = visible-history refit (52 onset cells differ); ongoing = P1 (279 cells). T1 and T4 are unchanged.
+* Expected Δ vs v9b, from the validation masked-layer events (public = validation): onset +0.032 → +0.0048 total,
+  ongoing +0.0037 → +0.0006; **public ≈ +0.005** (noise sd ≈ 0.004–0.006 for an onset change on 40 windows). Private
+  ≈ +0.0065 + 0.0008 ≈ +0.007.
+* Purpose: goal criterion B (T-row-fixed version ≥ +0.005 online vs v9b), and confirmation that the out-of-scenario
+  evaluator predicts online.
+
+**V10b: probe, "onset ensemble with the no-tod variant"** (`sub_v10b.zip`, `queue_models13_v10b.csv`)
+* Change vs V10a: onset = pooled ensemble (w=0.5), 75 onset cells differ from v9b.
+* Expected Δ vs v9b: public ≈ 0.15·0.027 + 0.0006 ≈ **+0.0046** (≈ V10a − 0.0008); private ≈ +0.014.
+* Purpose: check that the ensemble costs nothing on public (validation says ≈ −0.005 onset vs V10a). The private gain
+  cannot be seen on public; if V10b ≥ V10a − 0.004, the ensemble becomes a final candidate on its private evidence.
+* The other three 09-30 submissions stay unassigned until V10a/V10b come back.
