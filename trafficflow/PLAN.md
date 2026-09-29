@@ -415,3 +415,11 @@ within noise.
 Leak check: T2 uses only the 60-minute history; T1 uses only the published masked layer; T4 uses
 only the split's own prior and counts. No post-buffer observations and no hidden labels.
 Final-selection candidates so far: v9b (best local EV and best public), then v8.
+
+Episode-duration features for ongoing (2026-09-28, lean evaluator `tfb/t2_lean_eval.py`, same 5,805
+windows, LightGBM with threshold 0.5): 0.8349 → **0.8367 (+0.0018)**. Inside the CNN blend that is
+≈ +0.001 IoU, ≈ +0.0002 total. Kept (frame `t2_ongoing_parts_early`) for the next bundle; not a
+submission on its own.
+Process note: the first evaluations were OOM-killed (the wider frame did not fit the pandas-based
+evaluator), and a watcher waited on its own pgrep match. Watchers now wait on PIDs, and the
+evaluation is per-panel float32.

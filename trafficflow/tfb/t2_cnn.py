@@ -13,11 +13,24 @@ from .t2_events import queue_truth
 from .t2_ongoing import is_ongoing
 
 torch.set_num_threads(4)
-NCH = 4 * 13 + 2 + 2 + len(T2P)
+import os  # noqa: E402
+
+EARLY = os.environ.get("TFB_CNN_EARLY", "0") == "1"
+NCH = 4 * 13 + 2 + 2 + len(T2P) + (4 if EARLY else 0)
 
 
-def window_tensor(hs, hf, vcut, cap, T, dow, bneck_mask, pid):
-    """hs/hf (13, L) visible history -> (NCH, L) float32."""
+def early_channels(mspeed_day, T, vcut):
+    """(4, L) causal channels from the masked layer before T-60: episode age, queued count, time since last
+    queue, 3-hour queued fraction (same definitions as t2_ongoing.early_features)."""
+    from .t2_ongoing import early_features
+    e = early_features(mspeed_day, T, vcut)
+    L = len(vcut)
+    return np.stack([np.full(L, e["ep_age"] / 288.0), e["e_q_cnt"] / 288.0,
+                     np.minimum(e["e_since"], 288.0) / 288.0, e["e_frac3h"]]).astype(np.float32)
+
+
+def window_tensor(hs, hf, vcut, cap, T, dow, bneck_mask, pid, early=None):
+    """hs/hf (13, L) visible history -> (NCH, L) float32. `early`: (4, L) channels when EARLY is on."""
     L = hs.shape[1]
     r = hs / vcut[None, :]
     miss = ~np.isfinite(r)
@@ -30,7 +43,10 @@ def window_tensor(hs, hf, vcut, cap, T, dow, bneck_mask, pid):
              np.full((1, L), T / 288.0), np.full((1, L), dow / 6.0)]
     oh = np.zeros((len(T2P), L), np.float32)
     oh[pid] = 1
-    return np.concatenate(parts + [oh], 0).astype(np.float32)
+    parts = parts + [oh]
+    if EARLY:
+        parts.append(early if early is not None else np.zeros((4, L), np.float32))
+    return np.concatenate(parts, 0).astype(np.float32)
 
 
 def panel_windows(panel: str, wins: pd.DataFrame):
@@ -46,7 +62,9 @@ def panel_windows(panel: str, wins: pd.DataFrame):
     pid = T2P.index(panel)
     X, Y, E = [], [], []
     for d, T in zip(wins.d.to_numpy(), wins["T"].to_numpy()):
-        X.append(window_tensor(z["speed"][d, T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], bmask, pid))
+        early = early_channels(z["m_speed"][d], T, vcut) if EARLY else None
+        X.append(window_tensor(z["speed"][d, T - 12:T + 1], z["flow"][d, T - 12:T + 1], vcut, cap, T, dow[d], bmask, pid,
+                               early))
         Y.append(Q[d, T + 1:T + 7])
         E.append(z["elig"][d, T + 1:T + 7] == 1)
     return np.stack(X), np.stack(Y).astype(np.float32), np.stack(E)

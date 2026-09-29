@@ -17,7 +17,7 @@ from .submit import OUT
 
 SPLITS = ("validation", "private")
 SEEDS = [int(x) for x in (sys.argv[1] if len(sys.argv) > 1 else "1,2,3").split(",")]
-MAPS = CACHE / "t2_final_maps.pkl"
+MAPS = CACHE / ("t2_final_maps_early.pkl" if C.EARLY else "t2_final_maps.pkl")
 
 
 def window_inputs(p, split):
@@ -63,8 +63,16 @@ def cnn_maps(net_c, seed):
         bmask = np.zeros(len(net), np.float32)
         bmask[bn[bn.panel == p].link.unique()] = 1
         for s in SPLITS:
+            if C.EARLY:
+                from .data import load as _load
+                zs = _load(p, s)
+                di = {d: i for i, d in enumerate(zs["dates"].tolist())}
             for wid, T0, hs, hf in inputs[(p, s)]:
-                x = C.window_tensor(hs, hf, vcut, cap, T0.hour * 12 + T0.minute // 5, T0.dayofweek, bmask, T2P.index(p))
+                T = T0.hour * 12 + T0.minute // 5
+                early = None
+                if C.EARLY:  # causal: masked layer of the same (published) day before T-60
+                    early = C.early_channels(zs["m_speed"][di[T0.strftime("%Y-%m-%d")]], T, vcut)
+                x = C.window_tensor(hs, hf, vcut, cap, T, T0.dayofweek, bmask, T2P.index(p), early)
                 out[wid] = C.predict(net_c, x[None])[0]
     maps["cnn"][seed] = out
     pickle.dump(maps, open(MAPS, "wb"))
