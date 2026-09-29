@@ -508,5 +508,26 @@ the local ongoing simulation and the online ongoing windows or truth. Candidates
 (b) online `is_score_eligible` for horizon cells differs from the observation-based eligibility;
 (c) the selector's ongoing origins differ from uniform sampling within episodes.
 Final-selection plan: hedge with **v9b** (best public) + **P2** (full fix, best local expected
-value). Private uses different windows, and local evidence is statistically much larger but has a
+value).
+
+### Remaining three submissions on 2026-09-30 (S3–S5)
+
+Observation behind S3: online v9b ≥ P1 ≥ P2, while locally the order is reversed.
+Interpretation: the old models, trained with the observed origin row but fed a 5-minute-old value
+at inference, behave more like persistence (conservative). The fixed models extrapolate change more
+aggressively. Hypothesis (a): the online truth, from the noise-free state, is smoother and less
+dynamic than our noisy labels, so persistence-like predictions score higher online.
+
+**S3: probe, "does a more persistence-like ongoing score higher online?"**
+* Change vs v9b: ongoing p = 0.7·p_v9b + 0.3·persistence (last visible state, T−5 or earlier),
+  threshold 0.5. Onset, T1 and T4 are the same as v9b (`queue_models10_s3.csv`; 0.32% of cells
+  differ).
+* Local expected Δ (`tfb/t2_pers_mix_eval.py`): ongoing 0.8666 → 0.8402 (−0.026), i.e. **total
+  ≈ −0.004**. The local truth is the noisy label.
+* Decision rule. If online ≥ v9b (Δ ≥ 0), hypothesis (a) is supported; S4 then applies the same
+  α=0.3 mix to P2 (the fixed models), or raises α to 0.5 on v9b. If online ≤ v9b − 0.003 (roughly
+  as local predicts), hypothesis (a) is rejected. S4 then becomes the onset-refit probe
+  (origin-row-fixed onset on top of v9b), local expected ≈ +0.001.
+* S5 is held for a merge of whatever S3/S4 confirm; if nothing is confirmed, it stays unused.
+* Actual: _(pending)_ Private uses different windows, and local evidence is statistically much larger but has a
 known unresolved bias.
