@@ -423,3 +423,24 @@ submission on its own.
 Process note: the first evaluations were OOM-killed (the wider frame did not fit the pandas-based
 evaluator), and a watcher waited on its own pgrep match. Watchers now wait on PIDs, and the
 evaluation is per-panel float32.
+
+## 2026-09-29: the local/online T2 gap is a train/inference mismatch (origin row T)
+
+* Probe `v9b_static` (v9b with onset = static per-panel set): **0.85012**, against v9b 0.87104.
+  So the onset model is worth +0.021 total online (≈ +0.14 onset IoU; the local estimate was +0.2).
+  The onset model transfers.
+* Decomposition (v1 is the official persistence 0.3017; v1→v2 changed only T2): online S_queue
+  (v9b) ≈ 0.788. With onset ≈ 0.86, **ongoing online ≈ 0.72 against 0.853 locally**. Yet the ongoing
+  persistence baseline matches (0.638 both). So the ongoing MODEL does not transfer.
+* Root cause: `window_history` covers T−60…T−5 (12 slots). **The origin row T is never
+  published**, in all three splits. All T2 training and local evaluation used
+  `z["speed"][d, T-12:T+1]`, so the origin row was present and observed. The models learned to
+  rely on r0 (the ratio at T), which is only a forward-filled T−5 value at inference.
+* Fix (`t2_events.visible()`): the T row is NaN in every train frame and evaluator (ongoing
+  LightGBM, onset, CNN, persistence baselines). The onset frame is rebuilt; onset with visible
+  history is 0.9127 (vs 0.9179 with the T row), so it was only mildly affected. The ongoing frame
+  `t2_ongoing_parts_vis` is rebuilt with the episode-duration features.
+* Also: validation/private ongoing windows have smaller queues than the organizer's train windows
+  (links queued at the origin 23 / 21 vs 36). The big evaluator already matches this (23.4). IoU
+  rises steeply with queue size (0.78 for 0–5 links, 0.96 for > 40 links); threshold 0.5 is best
+  in every size bucket.
