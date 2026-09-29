@@ -444,3 +444,29 @@ evaluation is per-panel float32.
   (links queued at the origin 23 / 21 vs 36). The big evaluator already matches this (23.4). IoU
   rises steeply with queue size (0.78 for 0–5 links, 0.96 for > 40 links); threshold 0.5 is best
   in every size bucket.
+
+### Local confirmation of the origin-row fix (2026-09-30 01:42 UTC)
+
+Lean evaluator, 6,396 ongoing test windows, all with the realistic input (origin row T missing):
+
+| LightGBM ongoing | IoU (threshold 0.5) |
+|---|---|
+| trained on the old frame (T row present), i.e. what is online now | 0.802 |
+| **trained on `t2_ongoing_parts_vis` (T row missing, plus episode-duration features)** | **0.8352** |
+
+The old model scored 0.835 on test data *with* the T row, so the mismatch cost ≈ 0.033 ongoing IoU.
+The fix recovers all of it. The CNN was also trained with the T row, so it is presumably degraded
+in the same way.
+
+### Submission log for 2026-09-30 (5 available; the 2 left on 09-29 expired unused while the fix was being verified)
+
+**P1: probe, "does the origin-row fix transfer online?"**
+* Change vs v9b: only the LightGBM inside the ongoing blend is replaced by the T-row-fixed model
+  (`t2_final3.py`, maps in `t2_final_maps_vis.pkl`). The CNN (4-seed mean, old), the 0.5/0.5
+  blend, onset, T1 and T4 are all unchanged.
+* Local expected Δ: LightGBM +0.033 on realistic inputs → blend ≈ +0.015–0.02 ongoing IoU →
+  S_queue ≈ +0.008–0.01 → **total ≈ +0.0025–0.003**. Public-LB noise sd ≈ 0.0025 on ongoing
+  alone.
+* Purpose: probe. If the delta is ≥ +0.002, the fix is confirmed online and P2 (CNN retrained on the
+  visible history) follows. If ≤ 0, re-check the inference path for validation/private.
+* Actual: _(pending)_
