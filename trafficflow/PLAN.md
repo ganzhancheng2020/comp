@@ -472,3 +472,20 @@ in the same way.
 * Actual: **0.87037** (v9b 0.87104), so Δ = −0.0007 against an expected +0.0025–0.003. That is
   about 1.3 sd below expectation: not a confirmation and not a refutation. The ongoing gap still
   looks larger than the origin row alone explains (see the next check).
+* Check: the NaN pattern of `window_history` equals that of `z["speed"]` (16.3% missing in both).
+  The earlier "23%" figure included the always-missing origin row, so there is no second input
+  mismatch.
+
+**P2: probe/breakthrough, "the full origin-row fix: LightGBM and CNN both trained on the visible
+history"**
+* Change vs P1: the ongoing CNN is replaced by a mean of two new seeds (1, 2) trained on the visible
+  history (T−60…T−5), plus the four early-day channels (`TFB_CNN_EARLY=1`, maps in
+  `t2_final_maps_early.pkl`). The LightGBM is the fixed one from P1; the 0.5/0.5 blend with
+  threshold 0.5 is unchanged, and onset, T1 and T4 are the same as v9b.
+* Local expected Δ: not measured directly for the CNN yet (a 2-fold evaluation takes about 2 h). By
+  analogy with the LightGBM (0.802 → 0.835 on realistic inputs), the CNN half gains a similar
+  ≈ +0.03, so the blend ongoing ≈ +0.015 vs P1. That is **total ≈ +0.002–0.003 vs P1, ≈ +0.004–0.006
+  vs v9b**, although this CNN has 2 seeds instead of 4 (−0.002 ongoing).
+* Purpose: probe for criterion B (a T-row-fixed version at ≥ +0.005 over v9b online) and
+  confirmation of the fix.
+* Actual: _(pending)_
