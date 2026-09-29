@@ -458,7 +458,7 @@ The old model scored 0.835 on test data *with* the T row, so the mismatch cost �
 The fix recovers all of it. The CNN was also trained with the T row, so it is presumably degraded
 in the same way.
 
-### Submission log for 2026-09-30 (5 available; the 2 left on 09-29 expired unused while the fix was being verified)
+### Submission log for 2026-09-29 UTC (v9b_static, P1, P2, S3, S4; earlier drafts of this section said 09-30)
 
 **P1: probe, "does the origin-row fix transfer online?"**
 * Change vs v9b: only the LightGBM inside the ongoing blend is replaced by the T-row-fixed model
@@ -510,7 +510,7 @@ the local ongoing simulation and the online ongoing windows or truth. Candidates
 Final-selection plan: hedge with **v9b** (best public) + **P2** (full fix, best local expected
 value).
 
-### Remaining three submissions on 2026-09-30 (S3–S5)
+### Remaining submissions on 2026-09-29 UTC (S3, S4; S5 does not exist: v9b_static was the first of the day)
 
 Observation behind S3: online v9b ≥ P1 ≥ P2, while locally the order is reversed.
 Interpretation: the old models, trained with the observed origin row but fed a 5-minute-old value
@@ -549,3 +549,100 @@ known unresolved bias.
 **Decision (account holder, 2026-09-30):** observations after the post-horizon buffer (T+95 onwards)
 will NOT be used for T2 under any circumstances. It would be look-ahead leakage and break the rules.
 All work stays within the documented information set.
+
+### Hypothesis (d) result: rejected (2026-09-29 04:50 UTC)
+
+Lean evaluator, same test windows, all with the realistic input (T row missing), three selector filters:
+
+| Filter | windows | official persistence | old LightGBM (online) | fixed LightGBM (P1/P2) |
+|---|---|---|---|---|
+| ffill persistence ≤ 0.9 (old evaluators) | 6,396 | 0.516 | 0.802 | 0.835 |
+| **official persistence ≤ 0.9 (selector-style)** | 10,844 | **0.608** | 0.893 | **0.914** |
+| no filter | 11,771 | 0.637 | 0.900 | 0.920 |
+
+Official-filter persistence 0.608 matches online v1 (0.603 implied), so this filter is the aligned one. The
+fix still wins by +0.021 under it, so (d) does not explain online v9b ≥ P1 ≥ P2.
+
+### Where is the local/online T2 gap: onset or ongoing? Two decompositions disagree
+
+* Anchor A (v1→v2): v1 predicts **0 onset cells** (checked), and v1→v2 changed only onset (empty →
+  static set), +0.113 online → online static onset ≈ 0.75 (local 0.713–0.725). v9b_static → v9b is
+  +0.14 onset → **v9b onset online ≈ 0.89 (local 0.91): onset aligned**. Then, with the non-queue components
+  reconstructed from the calibration table, S_queue(v9b) ≈ 0.78 → **ongoing online ≈ 0.68** against
+  0.89 locally (official filter).
+* Decomposition B (earlier today): take ongoing as local and solve for onset → onset online 0.57–0.68.
+  This contradicts anchor A, and A uses fewer assumptions.
+
+### Validation and private are different traffic scenarios from train (new, 2026-09-29)
+
+`synthetic_release_v1.json`: "The scenario seed for validation and private is drawn at random". The
+published masked layer shows whole bottleneck clusters switching on or off between splits (share of days
+with a queue; masking rates are the same, ≈ 0.43, in all splits, so this is not masking):
+
+| Panel | Links | train | validation (Mar) | private (Apr) |
+|---|---|---|---|---|
+| D7_I10_E | 11–23 | 0.71 | **0.03** (min speed 108) | 0.70 |
+| D7_I210_W | 62–66 | 0.6–0.74 | **0.00** | **0.07** |
+| D7_I405_S | 81–89 | 0.01–0.04 | 0.06 | **0.33–0.80** |
+| D7_I405_S | 90–93 | 0.7 | **0.06** | 0.87 |
+| D12_I5_N | 111–114, 188–195 | 0.4–0.75 | **0.00–0.03** | **0.00–0.07** |
+| D12_I5_S | 43–45 (main onset cluster) | 0.89 | **0.45** | 0.93 |
+
+The change is abrupt at the split boundary (last days of train still show the train pattern), and all
+T2 windows sit in the first ~7 days of each split, so earlier days of the same scenario are almost
+never available before a window origin. Opportunity size (a diagnostic on onset events mined from the
+masked layer; no model uses it): a static onset set fitted on train scores 0.398 (val) and 0.442 (pri),
+and an oracle set fitted 2-fold inside the split scores 0.448 / 0.439. So adapting to the scenario would
+help **validation (public LB) by ≈ +0.05 onset IoU, mostly D12_I5_S (0 → 0.29) and D7_I405_S, and private not
+at all**. Decisions:
+* No scenario adaptation. It could only use post-origin data from the same split (forbidden), and
+  private does not need it.
+* Public-LB T2 is biased by the validation scenario. Final selection should keep using local expected
+  value, not public deltas below the noise.
+
+**S4: probe, "is the local/online T2 gap in ongoing (anchor A) or in onset (decomposition B)?"**
+* Change vs v9b: only the 40+40 ongoing windows are replaced by the official persistence baseline
+  (the v1 file, `queue_models11_s4_persong.csv`; 3,438 cells differ). Onset, T1 and T4 are the same as v9b.
+* Expected: under B (ongoing online ≈ local 0.89): 0.871 − 0.15·(0.89 − 0.60) ≈ **0.828**. Under A (ongoing
+  online ≈ 0.68): 0.871 − 0.15·(0.68 − 0.60) ≈ **0.859**. The gap between them is 0.03 against a
+  noise sd ≈ 0.0025, so the probe is decisive.
+* Purpose: probe. It measures the ongoing model's online advantage over persistence directly, and
+  that decides where the remaining month goes: A → the ongoing inputs/labels (the online ongoing truth or
+  windows differ from our simulation); B → onset (the validation scenario shift above already explains
+  much of it, so the private expectation stays).
+* Actual: **0.83590** (Δ vs v9b −0.0351) → Og(v9b) − Pers_official = 0.234 online.
+* Check that broke anchor A: v2's ongoing was **our forward-filled persistence** (5,532 cells), not the official
+  one used by v1 and S4 (4,374 cells; S4 = v1 on ongoing exactly). So v2 − v1 = 0.15·(onset_static + P_ffill − P_off).
+
+**Closed decomposition (5 submissions, v1/v2/v9b/v9b_static/S4; P_off = 0.608 and P_ffill = 0.786 from the
+official-filter lean evaluator):**
+
+| Component | online | local (official filter) | gap |
+|---|---|---|---|
+| ongoing persistence (official) | 0.603 (v1) | 0.608 | 0.005 (aligned) |
+| onset static set | 0.58 | 0.71 | 0.13 |
+| **onset v9b** | **0.72** | 0.91 | **0.19** |
+| **ongoing v9b** | **0.84** | 0.89–0.90 | **0.05** |
+
+Consistency: the non-T2 part rises by +0.024 from v2 to v9b, as the local T1/physics estimates predict
+(+0.02–0.03). Decomposition B was right in direction, and anchor A was wrong.
+Interpretation: onset has the bigger gap. Per-window IoU sd is 0.375 (release config), so a 40-window
+condition mean has SE ≈ 0.06; the onset gap is ≈ 3 SE and the ongoing gap ≈ 1 SE. On onset, part of
+it is the validation-specific scenario shift above (D12_I5_S 43–45 queues on 45% of March days vs 89% in
+train; D7_I405_S 90–93 is nearly off in March). Private looks like train for onset (static-set diagnostic 0.442 in both
+the train-fitted and the oracle set), so the private onset expectation is closer to local than the public one.
+
+### Loop 5 conclusion and next steps (2026-09-29 05:10 UTC; today's 5 submissions are used)
+
+* The ongoing model transfers (+0.234 over persistence online vs +0.28–0.29 locally). The remaining ongoing gap
+  (≈ 0.05) is within about 1 SE.
+* The onset gap (≈ 0.19) is the largest single item: small-sample noise (SE ≈ 0.06) plus the validation
+  scenario shift. Nothing compliant fixes the shift for public (it needs post-origin data from the same
+  split), and private does not show it.
+* Direction for the remaining month: make onset robust to scenario shift from the window history alone
+  (lean less on link-identity priors, more on the state 60 minutes ahead, the organizers' "1.28× threshold"
+  signal). It can only be measured on events mined from the val/private masked layer, used for evaluation only.
+  The account holder must decide whether that evaluation-only use is acceptable (it is post-origin data,
+  even though no prediction consumes it).
+* Final selection: keep **v9b + P2**. Public deltas between them (−0.0018) are below one SE of the 80-window
+  public T2 sample, and the local expected value favours the origin-row fix.
