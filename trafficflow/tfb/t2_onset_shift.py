@@ -58,34 +58,31 @@ def event_rows(p, z, d, T, cands, cm):
     return X
 
 
-def fit_models(df, drop=()):
-    lf_old = [c for c in df.columns if c not in ("y", "d", "s", "panel", "n_true", "cl")]
-    mc, ml, lf, cfeat = o2.fit(df)
-    mo = lgb.train(on.PARAMS, lgb.Dataset(df[lf_old], df.y, categorical_feature=["pid"]), 400)
-    return mc, ml, lf, cfeat, mo, lf_old
-
-
-def fit_models_nocid(df, drop=()):
-    """Cluster model without the cluster-identity categorical: it must read the state."""
-    lf_old = [c for c in df.columns if c not in ("y", "d", "s", "panel", "n_true", "cl")]
-    lf = lf_old
-    cf = o2.cluster_frame(df, lf)
-    cfeat = [c for c in cf.columns if c not in ("panel", "d", "s", "y")]
-    mc = lgb.train(o2.CPAR, lgb.Dataset(cf[cfeat], cf.y, categorical_feature=["pid"]), 400)
-    act = df.merge(cf[["panel", "d", "s", "cl", "y"]].rename(columns={"y": "cy"}), on=["panel", "d", "s", "cl"])
-    act = act[act.cy == 1]
-    ml = lgb.train(on.PARAMS, lgb.Dataset(act[lf], act.y, categorical_feature=["pid"]), 400)
-    mo = lgb.train(on.PARAMS, lgb.Dataset(df[lf_old], df.y, categorical_feature=["pid"]), 400)
-    return _NoCid(mc), ml, lf, cfeat, mo, lf_old
-
-
-class _NoCid:
-    """Wraps a cluster model trained without `cid` so predict_event_mix can pass cf[cfeat + ['cid']]."""
-    def __init__(self, m):
-        self.m = m
+class _Sel:
+    """Model wrapper that picks its own columns, so callers can pass wider frames."""
+    def __init__(self, m, cols):
+        self.m, self.cols = m, cols
 
     def predict(self, X):
-        return self.m.predict(X.drop(columns=["cid"]))
+        return self.m.predict(X[self.cols])
+
+
+def fit_general(df, drop=(), use_cid=True):
+    """Onset v9b structure (cluster model + in-cluster link model + old link model), minus the `drop` features."""
+    base = [c for c in df.columns if c not in ("y", "d", "s", "panel", "n_true", "cl")]
+    lf = [c for c in base if c not in drop]
+    cf = o2.cluster_frame(df, base)
+    cf["cid"] = cf.pid * 100 + cf.cl
+    call = [c for c in cf.columns if c not in ("panel", "d", "s", "y", "cid")]
+    cfeat = [c for c in call if c not in drop] + (["cid"] if use_cid else [])
+    cat = [c for c in ("pid", "cid") if c in cfeat]
+    mc = lgb.train(o2.CPAR, lgb.Dataset(cf[cfeat], cf.y, categorical_feature=cat), 400)
+    act = df.merge(cf[["panel", "d", "s", "cl", "y"]].rename(columns={"y": "cy"}), on=["panel", "d", "s", "cl"])
+    act = act[act.cy == 1]
+    lcat = ["pid"] if "pid" in lf else []
+    ml = lgb.train(on.PARAMS, lgb.Dataset(act[lf], act.y, categorical_feature=lcat), 400)
+    mo = lgb.train(on.PARAMS, lgb.Dataset(df[lf], df.y, categorical_feature=lcat), 400)
+    return _Sel(mc, cfeat), _Sel(ml, lf), base, call, _Sel(mo, lf), base
 
 
 def predict(models, X, w_old=0.3):
@@ -94,10 +91,11 @@ def predict(models, X, w_old=0.3):
 
 
 VARIANTS = {
-    "v9b": (fit_models, ()),
-    "no_link": (fit_models, ("link",)),
-    "no_link_nocid": (fit_models_nocid, ("link",)),
-    "state_only": (fit_models_nocid, ("link", "tod", "dow")),
+    "v9b_re": dict(),
+    "no_link": dict(drop=("link",)),
+    "no_link_cid": dict(drop=("link",), use_cid=False),
+    "no_tod": dict(drop=("tod", "dow")),
+    "no_id_tod": dict(drop=("link", "tod", "dow"), use_cid=False),
 }
 
 
@@ -112,18 +110,16 @@ def main():
     EV = {(p, s): mined_events(p, s, Z[(p, s)]) for p in T2P for s in SPLITS}
     print("events", {s: sum(len(EV[(p, s)]) for p in T2P) for s in SPLITS}, flush=True)
     rows = []
-    for name, (fitter, drop) in VARIANTS.items():
-        zero = {c: 0 for c in drop}   # a zeroed feature carries no information but keeps the frame layout
-        dz = df.assign(**zero)
-        full = fitter(dz)
-        folds = {f: fitter(dz[dz.d % 2 != f]) for f in (0, 1)}
+    for name, kw in VARIANTS.items():
+        full = fit_general(df, **kw)
+        folds = {f: fit_general(df[df.d % 2 != f], **kw) for f in (0, 1)}
         for (p, s), evs in EV.items():
             for d, ss, tru, el in evs:
                 m = folds[d % 2] if s == "train" else full
-                X = event_rows(p, Z[(p, s)], d, ss - 6, cands[p], cms[p]).assign(**zero)
+                X = event_rows(p, Z[(p, s)], d, ss - 6, cands[p], cms[p])
                 r = dict(variant=name, panel=p, split=s, iou=iou_elig(predict(m, X), tru, el))
                 rows.append(r)
-                if name == "v9b":
+                if name == "v9b_re":
                     rows.append(dict(variant="static", panel=p, split=s, iou=iou_elig(set(S[p]), tru, el)))
         r = pd.DataFrame(rows)
         t = r.groupby(["variant", "split", "panel"]).iou.mean().groupby(["variant", "split"]).mean().unstack()
