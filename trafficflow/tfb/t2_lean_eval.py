@@ -48,6 +48,9 @@ for f in (0, 1):
             maps[(p, d, T)] = mp
     del m; gc.collect()
     print("fold", f, "done", flush=True)
+import pickle  # noqa: E402
+
+pickle.dump(maps, open(CACHE / f"t2_lean_maps_{PARTS.name}__{TEST.name}.pkl", "wb"))
 rows = []
 for p in T2P:
     z = load(p, "train"); Q, vc = queue_truth(p, z=z); el = z["elig"] == 1; cov = np.isfinite(z["speed"])
@@ -59,12 +62,16 @@ for p in T2P:
             continue
         last = pd.DataFrame(z["speed"][d, T - 12:T] / vc).ffill().to_numpy()[-1] <= 1
         pers = np.repeat(last[None], 6, 0) & e
+        # official-style persistence (build_task2_persistence_submission): last published row (T-5), eligible, no ffill
+        v5 = z["speed"][d, T - 1]
+        lo = (v5 <= vc) & (z["elig"][d, T - 1] == 1)
+        pers_off = np.repeat(lo[None], 6, 0) & e
 
         def sc(pr):
             pr = pr & e; u = (pr | tru).sum(); return (pr & tru).sum() / u if u else 1.0
-        if sc(pers) > 0.9:
-            continue
-        rows.append(dict(panel=p, pers=sc(pers), lgb_thr=sc(mp > 0.5)))
+        rows.append(dict(panel=p, pers=sc(pers), pers_off=sc(pers_off), lgb_thr=sc(mp > 0.5)))
 r = pd.DataFrame(rows)
-pm = r.drop(columns="panel").groupby(r.panel).mean()
-print("LEAN train", PARTS.name, "test", TEST.name, pm.mean().round(4).to_dict(), len(r), flush=True)
+for name, sel in (("ffill-filter", r.pers <= 0.9), ("official-filter", r.pers_off <= 0.9), ("no-filter", r.pers >= 0)):
+    rr = r[sel]
+    pm = rr.drop(columns="panel").groupby(rr.panel).mean()
+    print("LEAN", name, "train", PARTS.name, "test", TEST.name, pm.mean().round(4).to_dict(), len(rr), flush=True)

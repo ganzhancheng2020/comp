@@ -529,5 +529,19 @@ dynamic than our noisy labels, so persistence-like predictions score higher onli
   as local predicts), hypothesis (a) is rejected. S4 then becomes the onset-refit probe
   (origin-row-fixed onset on top of v9b), local expected ≈ +0.001.
 * S5 is held for a merge of whatever S3/S4 confirm; if nothing is confirmed, it stays unused.
-* Actual: _(pending)_ Private uses different windows, and local evidence is statistically much larger but has a
+* Actual: **0.86795** (Δ vs v9b −0.0031; local predicted −0.004). **Hypothesis (a) is rejected.**
+  The online direction matches local on this axis, so the local ongoing evaluator is right about
+  persistence mixing.
+
+**S4 revised before use (the rule allowed onset refit, but its expected +0.001 is below the noise).**
+New hypothesis (d): the selector drops ongoing windows whose *official-style* persistence IoU
+(last visible row, eligible cells, no forward-fill) exceeds 0.9. Our local evaluators filter on the
+*forward-filled* persistence, which is higher, so they also drop "static-queue" windows that stay
+online. On those windows a conservative model (the old one, which treats the T−5 value as the value
+at T) beats a model that extrapolates change (P1/P2). That would explain online v9b ≥ P1 ≥ P2 while
+S3 still matches local.
+Local test first: re-run the old-vs-fixed LightGBM comparison with the selector-style filter.
+S4 is decided on that result:
+* if it shows old ≥ new, S4 is not needed (keep v9b and restore the fix only for dynamic windows);
+* if it shows new > old, the hypothesis is rejected, and S4 = onset refit or holding. Private uses different windows, and local evidence is statistically much larger but has a
 known unresolved bias.
