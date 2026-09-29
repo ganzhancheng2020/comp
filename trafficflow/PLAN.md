@@ -488,4 +488,25 @@ history"**
   vs v9b**, although this CNN has 2 seeds instead of 4 (−0.002 ongoing).
 * Purpose: probe for criterion B (a T-row-fixed version at ≥ +0.005 over v9b online) and
   confirmation of the fix.
-* Actual: _(pending)_
+* Actual: **0.86921**, i.e. Δ vs v9b −0.0018 and Δ vs P1 −0.0012, against an expected +0.002–0.003
+  vs P1 (≈ 2.7 sd below expectation vs v9b). P1 and P2 share the same 40 validation ongoing windows,
+  so their errors are correlated; they are not independent evidence. But both point the same way.
+
+### Conclusions of the three probe loops (2026-09-29/30)
+
+| Loop | Hypothesis | Local evidence | Probe | Online | Conclusion |
+|---|---|---|---|---|---|
+| 1 | The onset model does not transfer online | the gap decomposition | `v9b_static` | 0.85012 (−0.021) | Rejected: the onset model is worth ≈ +0.14 onset IoU online |
+| 2 | The origin-row mismatch costs the ongoing LightGBM | 0.802 → 0.835 (realistic inputs) | P1 | 0.87037 (−0.0007) | Not confirmed online |
+| 3 | The full fix (LightGBM + CNN) | extrapolated +0.004–0.006 vs v9b | P2 | 0.86921 (−0.0018) | Not confirmed; the local/online gap on ongoing persists |
+
+Remaining gap: the best public score is v9b at 0.87104 (#1 is 0.924). Online ongoing ≈ 0.72 against
+≈ 0.80–0.85 locally (realistic inputs). There is still an unidentified systematic difference between
+the local ongoing simulation and the online ongoing windows or truth. Candidates:
+(a) online truth from the noise-free state gives less flicker at queue edges (our labels flicker
+0.44–0.64 per cell), which favours contiguous or persistent predictions;
+(b) online `is_score_eligible` for horizon cells differs from the observation-based eligibility;
+(c) the selector's ongoing origins differ from uniform sampling within episodes.
+Final-selection plan: hedge with **v9b** (best public) + **P2** (full fix, best local expected
+value). Private uses different windows, and local evidence is statistically much larger but has a
+known unresolved bias.
