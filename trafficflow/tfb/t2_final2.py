@@ -79,7 +79,7 @@ def cnn_maps(net_c, seed):
     print("cnn seed", seed, "maps saved", flush=True)
 
 
-if 0 not in maps["cnn"] and (CACHE / "t2_cnn_full.pt").exists():
+if not C.EARLY and 0 not in maps["cnn"] and (CACHE / "t2_cnn_full.pt").exists():
     n0 = C.Net()
     n0.load_state_dict(torch.load(CACHE / "t2_cnn_full.pt"))
     cnn_maps(n0, 0)
@@ -96,8 +96,11 @@ for sd in SEEDS:
     net_c = C.train_model(data, epochs=25, seed=sd)
     del data
     gc.collect()
-    torch.save(net_c.state_dict(), CACHE / f"t2_cnn_full_s{sd}.pt")
+    torch.save(net_c.state_dict(), CACHE / f"t2_cnn_full{'_early' if C.EARLY else ''}_s{sd}.pt")
     cnn_maps(net_c, sd)
+if C.EARLY:  # the early/visible-history CNN maps are combined with tfb.t2_assemble
+    print("EARLY CNN maps done, seeds", sorted(maps["cnn"]), flush=True)
+    sys.exit(0)
 # combine
 ongoing = {}
 for wid, pl in maps["lgb"].items():

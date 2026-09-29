@@ -469,4 +469,6 @@ in the same way.
   alone.
 * Purpose: probe. If the delta is ≥ +0.002, the fix is confirmed online and P2 (CNN retrained on the
   visible history) follows. If ≤ 0, re-check the inference path for validation/private.
-* Actual: _(pending)_
+* Actual: **0.87037** (v9b 0.87104), so Δ = −0.0007 against an expected +0.0025–0.003. That is
+  about 1.3 sd below expectation: not a confirmation and not a refutation. The ongoing gap still
+  looks larger than the origin row alone explains (see the next check).
