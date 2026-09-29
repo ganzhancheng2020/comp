@@ -2,6 +2,7 @@
 输出 val/private ongoing 窗口的概率图到 cache/t2_final_maps_vis.pkl（键 "lgb"）。
 推理输入与线上一致：window_history（T−60…T−5）+ 同日已发布 masked 层中 T−60 之前的早时段特征。"""
 import gc
+import os
 import pickle
 
 import lightgbm as lgb
@@ -13,7 +14,9 @@ from . import t2_ongoing as og
 from .data import CACHE, REL, load, network
 from .t2 import T2_PANELS as T2P
 
-PARTS = CACHE / "t2_ongoing_parts_vis"
+PARTS = CACHE / os.environ.get("TFB_ONGOING_PARTS", "t2_ongoing_parts_vis")
+LGB_OUT = os.environ.get("TFB_LGB_OUT", "t2_lgb_vis.txt")   # t2_lgb_old.txt: the v9b model (old frame)
+MODEL_ONLY = os.environ.get("TFB_MODEL_ONLY", "0") == "1"
 MAPS = CACHE / "t2_final_maps_vis.pkl"
 SPLITS = ("validation", "private")
 PAR = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100, feature_fraction=0.8,
@@ -37,7 +40,9 @@ if __name__ == "__main__":
     m = lgb.train(PAR, lgb.Dataset(X, y, feature_name=feats, categorical_feature=["pid"], free_raw_data=True), 1000)
     del X, y
     gc.collect()
-    m.save_model(str(CACHE / "t2_lgb_vis.txt"))
+    m.save_model(str(CACHE / LGB_OUT))
+    if MODEL_ONLY:
+        raise SystemExit(0)
     bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
     maps = pickle.load(open(MAPS, "rb")) if MAPS.exists() else {"lgb": {}, "cnn": {}}
     maps["lgb"] = {}

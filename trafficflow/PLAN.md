@@ -652,3 +652,28 @@ the train-fitted and the oracle set), so the private onset expectation is closer
    post-origin data). Tool: `tfb/t2_onset_shift.py`.
 2. Same-day pre-origin masked-layer features (the early/episode features in P2) are allowed: they come before the
    origin, so they are not a leak.
+
+### Onset under scenario shift (`tfb/t2_onset_shift.py`, `tfb/t2_onset_shift_cal.py`; 2026-09-29)
+
+Onset events mined from the masked layer of each split (945 train, 93 validation, 103 private), with inputs as at
+inference (masked-layer history T−60…T−5, origin row missing). Train is scored 2-fold by day parity, and
+val/private with the full-train model. Mean over panels:
+
+| Onset | train (in scenario) | validation | private |
+|---|---|---|---|
+| static set | 0.695 | 0.657 | 0.719 |
+| **v9b model** | **0.893** | **0.765** | **0.766** |
+| no link-id feature | 0.863 | 0.697 | 0.756 |
+| no link-id, no cluster-id | 0.862 | 0.704 | 0.741 |
+| no tod/dow | 0.828 | 0.763 | 0.804 |
+
+* **The onset model loses ≈ 0.13 out of scenario, in validation AND private.** The static set does not.
+  This reproduces the online onset (≈ 0.72, +0.14 over static) and explains the onset local/online gap. Private is
+  affected as much as public.
+* Why: 35 min before onset the links that will queue still run at free flow (speed ratio ≈ 1.66 = 1/0.6 in all
+  splits). The history says little about *where* the queue forms, so the model leans on link identity and time of
+  day, and onset timing per bottleneck shifts with the scenario (D12_I5_N onsets at 12.4 h in train vs 10.8 h in private).
+* Paired out-of-scenario deltas vs v9b: no_tod +0.016 ± 0.014 (val −0.008, pri +0.037); no_id_tod −0.008 ± 0.017;
+  no_link −0.033 ± 0.010. Link identity still helps. Dropping tod is not significant; not adopted yet.
+* Decoding calibration (temperature τ, shrinkage to cluster base rates): private improves (0.766 → 0.79), validation
+  worsens (→ 0.70–0.75). The splits disagree, and pooled everything is ≈ 0.764. v9b decoding stays.
