@@ -545,3 +545,7 @@ S4 is decided on that result:
 * if it shows old ≥ new, S4 is not needed (keep v9b and restore the fix only for dynamic windows);
 * if it shows new > old, the hypothesis is rejected, and S4 = onset refit or holding. Private uses different windows, and local evidence is statistically much larger but has a
 known unresolved bias.
+
+**Decision (account holder, 2026-09-30):** observations after the post-horizon buffer (T+95 onwards)
+will NOT be used for T2 under any circumstances. It would be look-ahead leakage and break the rules.
+All work stays within the documented information set.
