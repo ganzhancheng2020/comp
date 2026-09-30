@@ -71,8 +71,8 @@ def cnn_map(ns, early, x_args, early_ch):
     return np.mean([C.predict(n, x[None])[0] for n in ns], axis=0)
 
 
-def blend(pl, pc, w=0.5):
-    return np.where(pl > 0, w * pl + (1 - w) * pc, pc) > 0.5
+def blend(pl, pc, w=0.5, thr=0.5):
+    return np.where(pl > 0, w * pl + (1 - w) * pc, pc) > thr
 
 
 def main():
@@ -120,7 +120,11 @@ def main():
                          "cnn_old": maps["cnn_old"] > 0.5, "cnn_new": maps["cnn_new"] > 0.5,
                          "v9b": blend(maps["lgb_old"], maps["cnn_old"]),
                          "P1": blend(maps["lgb_vis"], maps["cnn_old"]),
-                         "P2": blend(maps["lgb_vis"], maps["cnn_new"])}
+                         "P2": blend(maps["lgb_vis"], maps["cnn_new"]),
+                         "P1_t45": blend(maps["lgb_vis"], maps["cnn_old"], thr=0.45),
+                         "P1_t55": blend(maps["lgb_vis"], maps["cnn_old"], thr=0.55),
+                         "P1_w3": blend(maps["lgb_vis"], maps["cnn_old"], w=0.3),
+                         "P1_w7": blend(maps["lgb_vis"], maps["cnn_old"], w=0.7)}
                 if cnn_vis:
                     preds["cnn_vis"] = maps["cnn_vis"] > 0.5
                     preds["P1vis"] = blend(maps["lgb_vis"], maps["cnn_vis"])
@@ -131,7 +135,8 @@ def main():
     cols = [c for c in r.columns if c not in ("panel", "split")]
     print(r.groupby(["split", "panel"])[cols].mean().groupby("split").mean().T.round(4))
     print("windows", r.groupby("split").size().to_dict())
-    pairs = [("P2", "v9b"), ("P1", "v9b"), ("lgb_vis", "lgb_old"), ("cnn_new", "cnn_old")]
+    pairs = [("P2", "v9b"), ("P1", "v9b"), ("lgb_vis", "lgb_old"), ("cnn_new", "cnn_old"),
+             ("P1_t45", "P1"), ("P1_t55", "P1"), ("P1_w3", "P1"), ("P1_w7", "P1")]
     if "P1vis" in r:
         pairs += [("P1vis", "P1"), ("cnn_vis", "cnn_old")]
     for a, b in pairs:

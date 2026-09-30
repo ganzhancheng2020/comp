@@ -734,3 +734,16 @@ Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's on
   retrained on the visible history **without** the early channels, 4 seeds (the old CNN is still trained with the T row).
   It is judged by `t2_ongoing_shift.py` first; a submission only follows if it beats the old CNN out of scenario. Otherwise
   the slots stay unused (reason: no candidate with a positive expected Δ).
+
+### Onset/ongoing diagnostics (2026-09-30 02:00 UTC)
+
+* Onset loss out of scenario is almost all **cluster choice**: when the predicted clusters equal the true ones, IoU is
+  0.94–0.98 in every split; when they differ, 0.14–0.16. Wrong-cluster rate is 12% in scenario vs ≈ 20% out of scenario.
+  Candidate coverage is not the issue (true links outside the train candidates: private 7%, validation 2%).
+* Recent-days scenario prior (`tfb/t2_onset_recent.py`: reweight cluster probabilities by the cluster's queue-day rate on
+  earlier days of the same split vs train; causal): **no effect**. The cluster probabilities are saturated (0.99 / ≈ 0), and
+  in the first week, where the windows sit, the recent rates barely differ from train on the panels with events.
+  Rejected.
+* Ongoing candidate coverage is fine out of scenario (0.6% of true cells outside the candidates). The out-of-scenario ongoing
+  level (0.877) is not comparable with the in-scenario 0.914: the masked-layer inputs miss ≈ 43% of cells vs ≈ 16% online.
+* Container restart at 01:39 UTC killed the visible-history CNN training (seed 0, epoch 19). Relaunched 01:40.
