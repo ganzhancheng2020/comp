@@ -783,3 +783,21 @@ enlarges the predicted set.
 * Kaggle picks the top-2 public submissions if none are selected by hand: those are V10a (0.87446) and V10b (0.87109),
   which is exactly the planned final pair. Re-check on ≈ 2026-10-30.
 * New submissions only for changes with out-of-scenario evidence (paired, both splits).
+
+## First-principles audit against the scoring spec (`tfb_ref/docs/SCORING_SPEC.md`, 2026-09-30)
+
+Online component estimates and headroom (weight × (1 − score)): S_state ≈ 0.94 → 0.021; **S_queue ≈ 0.80 → 0.060**;
+S_physics ≈ 0.70 → 0.045; S_ODME ≈ 0.85–0.90 → 0.025.
+* T1: S_state = 0.54·(1 − RMSE_v/25) + 0.46·(1 − RMSE_q,lane/600). At the noise floor (σ_v ≈ 1.7, σ_q ≈ 30/lane) that is
+  0.54·0.932 + 0.46·0.95 ≈ 0.94, where we are. Closed by arithmetic.
+* T3: S_physics = S_FD/3 + 2·S_LWR/3, computed on our own T1 cells (k = q/v, N = kL) against organizer boundary fluxes that
+  are projected onto the noisy observations. The conservation signal is 0.75% of N, while the measurement noise in N is
+  ≈ 2–3%, so at masked cells dN is mostly unpredictable noise. Occupancy is masked at the same cells (checked: 0% present),
+  so there is no direct density measurement to exploit. The floor stands.
+* T4: the organizer reference is `nnls` ridge (λ = 0.05) over the split's prior and counts (`build_task4_odme_artifacts.py`),
+  which is what we submit. S_od (45%) compares with withheld path flows. Closed unless the truth generator differs.
+* T2: the truth is taken from the **noise-free underlying state**. Tested: denoised (3-slot median) vs noisy labels differ
+  on 0.1% of queued ongoing cells; IoU at thresholds 0.3–0.6 moves by ≤ 0.0002. Label noise is not a factor. Rejected.
+* So the headroom is T2, and on T2 it is the scenario shift. Onset: in scenario 0.893 vs out 0.765. Ongoing: being
+  measured (`tfb/t2_ongoing_idshift.py`: same masked input in and out of scenario, and with vs without the
+  identity/time features).
