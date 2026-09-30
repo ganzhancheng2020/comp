@@ -83,6 +83,7 @@ def main():
     cnn_new = nets(["t2_cnn_full_early_s1.pt", "t2_cnn_full_early_s2.pt"], True)
     vis_files = [f"t2_cnn_full_vis_s{sd}.pt" for sd in range(4) if (CACHE / f"t2_cnn_full_vis_s{sd}.pt").exists()]
     cnn_vis = nets(vis_files, False) if vis_files else []
+    cnn_old_k = cnn_old[:len(vis_files)]   # same seed count as cnn_vis, for a fair comparison
     bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
     rows = []
     for p in T2P:
@@ -116,6 +117,7 @@ def main():
                 maps["cnn_new"] = cnn_map(cnn_new, True, args, ech)
                 if cnn_vis:
                     maps["cnn_vis"] = cnn_map(cnn_vis, False, args, ech)
+                    maps["cnn_old_k"] = cnn_map(cnn_old_k, False, args, ech)
                 preds = {"pers": pers, "lgb_old": maps["lgb_old"] > 0.5, "lgb_vis": maps["lgb_vis"] > 0.5,
                          "cnn_old": maps["cnn_old"] > 0.5, "cnn_new": maps["cnn_new"] > 0.5,
                          "v9b": blend(maps["lgb_old"], maps["cnn_old"]),
@@ -128,6 +130,8 @@ def main():
                 if cnn_vis:
                     preds["cnn_vis"] = maps["cnn_vis"] > 0.5
                     preds["P1vis"] = blend(maps["lgb_vis"], maps["cnn_vis"])
+                    preds["cnn_old_k"] = maps["cnn_old_k"] > 0.5
+                    preds["P1_k"] = blend(maps["lgb_vis"], maps["cnn_old_k"])
                 rows.append(dict(panel=p, split=s, **{k: iou(v, tru, e) for k, v in preds.items()}))
             print(p, s, "done", flush=True)
     r = pd.DataFrame(rows)
@@ -138,7 +142,7 @@ def main():
     pairs = [("P2", "v9b"), ("P1", "v9b"), ("lgb_vis", "lgb_old"), ("cnn_new", "cnn_old"),
              ("P1_t45", "P1"), ("P1_t55", "P1"), ("P1_w3", "P1"), ("P1_w7", "P1")]
     if "P1vis" in r:
-        pairs += [("P1vis", "P1"), ("cnn_vis", "cnn_old")]
+        pairs += [("P1vis", "P1"), ("cnn_vis", "cnn_old"), ("cnn_vis", "cnn_old_k"), ("P1vis", "P1_k")]
     for a, b in pairs:
         dd = r[a] - r[b]
         print(f"{a} - {b}: mean {dd.mean():+.4f}  paired se {dd.std() / np.sqrt(len(dd)):.4f}  "

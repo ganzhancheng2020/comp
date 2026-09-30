@@ -747,3 +747,7 @@ Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's on
 * Ongoing candidate coverage is fine out of scenario (0.6% of true cells outside the candidates). The out-of-scenario ongoing
   level (0.877) is not comparable with the in-scenario 0.914: the masked-layer inputs miss ≈ 43% of cells vs ≈ 16% online.
 * Container restart at 01:39 UTC killed the visible-history CNN training (seed 0, epoch 19). Relaunched 01:40.
+* Process lesson (2026-09-30): the container is reclaimed when the session idles, which killed the CNN training twice
+  (01:39 and ≈ 02:10 UTC). Long jobs now run while the session stays active (≤ 10-min waits), and each seed is saved as
+  soon as it finishes. The visible-history CNN is trained with 2 seeds first and compared with 2 old seeds (fair
+  seed count) before any more seeds.
