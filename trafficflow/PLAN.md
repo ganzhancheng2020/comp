@@ -751,3 +751,19 @@ Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's on
   (01:39 and ≈ 02:10 UTC). Long jobs now run while the session stays active (≤ 10-min waits), and each seed is saved as
   soon as it finishes. The visible-history CNN is trained with 2 seeds first and compared with 2 old seeds (fair
   seed count) before any more seeds.
+
+### Visible-history CNN and ongoing decoding, out of scenario (2026-09-30 05:30 UTC; 1,181 val + 1,121 pri windows)
+
+| Paired Δ | mean ± se | private | validation |
+|---|---|---|---|
+| CNN visible history (2 seeds) − old CNN (same 2 seeds) | −0.0027 ± 0.0021 | −0.0057 | +0.0001 |
+| fixed LGB + vis CNN − P1 (both 2 CNN seeds) | −0.0003 ± 0.0016 | −0.0010 | +0.0004 |
+| P1 threshold 0.45 − 0.5 | +0.0017 ± 0.0008 | +0.0015 | +0.0019 |
+| P1 threshold 0.55 − 0.5 | −0.0025 ± 0.0008 | | |
+| P1 blend w 0.3 / 0.7 − 0.5 | −0.0045 / −0.0039 | | |
+
+* The origin-row fix does not help the CNN out of scenario, so **no V10c**. P1 (fixed LightGBM + old 4-seed CNN, w 0.5,
+  threshold 0.5) stays.
+* Threshold 0.45 is consistent in both splits but worth ≈ +0.0003 total, and the masked-layer inputs are much sparser than
+  online ones (it may be an input artefact). Not adopted.
+* **The remaining 3 submissions of 2026-09-30 stay unused**: no candidate with a positive expected Δ.
