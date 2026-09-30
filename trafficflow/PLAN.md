@@ -836,3 +836,15 @@ the direction is not.
   that panel (5 val events) was small-sample luck.
 * **Rule tightened:** a pooled out-of-scenario gain counts only if it is not carried by one panel: at least half of the
   changed panels must improve in both splits, and the gain must survive dropping the best panel.
+
+### Ongoing kinematic-wave (LWR) tail features (`tfb/t2_ongoing_lwr.py`, 2026-09-30)
+
+Shock speed at the nearest queue run's tail, w = (q_up − q_queue)/(k_up − k_queue) (k = q/v at T−5; median +2 km/h, 10–90%
+−14…+18), and each cell's km distance to the tail extrapolated k steps ahead. Same 30% subsample protocol as the id-shift
+test. Ongoing IoU: train 0.8976 → 0.8972, val 0.8610 → 0.8634, pri 0.8694 → 0.8707. Out of scenario **+0.0020 ± 0.0011
+(1.8 se)**; 4 of 8 panels improve in both splits, 2 lose in both (I210 E/W). Below the 2-se bar, and worth ≈ +0.0003
+total. **Not adopted, not submitted.** The model's empirical tail features (d_tail, run_growth6) already carry most of the
+kinematics.
+
+**2026-09-30: the last 2 submissions stay unused.** No candidate has a credible positive expected Δ above the public noise.
+Public best stays V10a (0.87446); final picks V10a + V10b.
