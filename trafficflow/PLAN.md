@@ -767,3 +767,19 @@ Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's on
 * Threshold 0.45 is consistent in both splits but worth ≈ +0.0003 total, and the masked-layer inputs are much sparser than
   online ones (it may be an input artefact). Not adopted.
 * **The remaining 3 submissions of 2026-09-30 stay unused**: no candidate with a positive expected Δ.
+
+### Onset cluster calibration (2026-09-30 06:30 UTC): rejected
+
+Rule set beforehand: adopt only if both splits ≥ 0 and the pooled gain > 2 se. Cluster-only temperature τ = 1.5/2/3:
+out-of-scenario −0.003/−0.009/−0.017 (validation −0.008…−0.038, private +0.0016). Clipping pc to [ε, 1−ε]: ε ≤ 0.1 changes
+nothing; ε = 0.2 gives −0.004. Expected-IoU decoding is not hurt by overconfident cluster probabilities: flattening only
+enlarges the predicted set.
+
+### Status and plan (2026-09-30)
+
+* Every component is at its ceiling under the compliance rules. T1, physics and T4 were already closed. Ongoing = P1, the
+  optimum out of scenario (CNN refit, threshold and blend weight all checked). Onset = origin-row-fixed refit (V10a);
+  ensemble, recent-days prior and calibration were tried.
+* Kaggle picks the top-2 public submissions if none are selected by hand: those are V10a (0.87446) and V10b (0.87109),
+  which is exactly the planned final pair. Re-check on ≈ 2026-10-30.
+* New submissions only for changes with out-of-scenario evidence (paired, both splits).
