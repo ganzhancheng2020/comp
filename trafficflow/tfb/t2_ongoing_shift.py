@@ -81,6 +81,8 @@ def main():
     m_vis = lgb.Booster(model_file=str(CACHE / "t2_lgb_vis.txt"))
     cnn_old = nets(["t2_cnn_full.pt", "t2_cnn_full_s1.pt", "t2_cnn_full_s2.pt", "t2_cnn_full_s3.pt"], False)
     cnn_new = nets(["t2_cnn_full_early_s1.pt", "t2_cnn_full_early_s2.pt"], True)
+    vis_files = [f"t2_cnn_full_vis_s{sd}.pt" for sd in range(4) if (CACHE / f"t2_cnn_full_vis_s{sd}.pt").exists()]
+    cnn_vis = nets(vis_files, False) if vis_files else []
     bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
     rows = []
     for p in T2P:
@@ -112,11 +114,16 @@ def main():
                 ech = C.early_channels(z["m_speed"][d], T, vc)
                 maps["cnn_old"] = cnn_map(cnn_old, False, args, ech)
                 maps["cnn_new"] = cnn_map(cnn_new, True, args, ech)
+                if cnn_vis:
+                    maps["cnn_vis"] = cnn_map(cnn_vis, False, args, ech)
                 preds = {"pers": pers, "lgb_old": maps["lgb_old"] > 0.5, "lgb_vis": maps["lgb_vis"] > 0.5,
                          "cnn_old": maps["cnn_old"] > 0.5, "cnn_new": maps["cnn_new"] > 0.5,
                          "v9b": blend(maps["lgb_old"], maps["cnn_old"]),
                          "P1": blend(maps["lgb_vis"], maps["cnn_old"]),
                          "P2": blend(maps["lgb_vis"], maps["cnn_new"])}
+                if cnn_vis:
+                    preds["cnn_vis"] = maps["cnn_vis"] > 0.5
+                    preds["P1vis"] = blend(maps["lgb_vis"], maps["cnn_vis"])
                 rows.append(dict(panel=p, split=s, **{k: iou(v, tru, e) for k, v in preds.items()}))
             print(p, s, "done", flush=True)
     r = pd.DataFrame(rows)
@@ -124,7 +131,10 @@ def main():
     cols = [c for c in r.columns if c not in ("panel", "split")]
     print(r.groupby(["split", "panel"])[cols].mean().groupby("split").mean().T.round(4))
     print("windows", r.groupby("split").size().to_dict())
-    for a, b in (("P2", "v9b"), ("P1", "v9b"), ("lgb_vis", "lgb_old"), ("cnn_new", "cnn_old")):
+    pairs = [("P2", "v9b"), ("P1", "v9b"), ("lgb_vis", "lgb_old"), ("cnn_new", "cnn_old")]
+    if "P1vis" in r:
+        pairs += [("P1vis", "P1"), ("cnn_vis", "cnn_old")]
+    for a, b in pairs:
         dd = r[a] - r[b]
         print(f"{a} - {b}: mean {dd.mean():+.4f}  paired se {dd.std() / np.sqrt(len(dd)):.4f}  "
               + " ".join(f"{s} {g.mean():+.4f}" for s, g in dd.groupby(r.split)))

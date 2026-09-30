@@ -17,7 +17,9 @@ from .submit import OUT
 
 SPLITS = ("validation", "private")
 SEEDS = [int(x) for x in (sys.argv[1] if len(sys.argv) > 1 else "1,2,3").split(",")]
-MAPS = CACHE / ("t2_final_maps_early.pkl" if C.EARLY else "t2_final_maps.pkl")
+import os
+TAG = os.environ.get("TFB_CNN_TAG", "")   # "_vis": CNN on the visible history without early channels (never overwrites old files)
+MAPS = CACHE / ("t2_final_maps_early.pkl" if C.EARLY else f"t2_final_maps{TAG}.pkl")
 
 
 def window_inputs(p, split):
@@ -33,7 +35,7 @@ def window_inputs(p, split):
 maps = pickle.load(open(MAPS, "rb")) if MAPS.exists() else {"lgb": {}, "cnn": {}}
 bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
 inputs = {(p, s): window_inputs(p, s) for p in T2P for s in SPLITS}
-if not maps["lgb"]:
+if not maps["lgb"] and not TAG:
     m, feats = og.fit_all()
     for p in T2P:
         net = network(p)
@@ -79,7 +81,7 @@ def cnn_maps(net_c, seed):
     print("cnn seed", seed, "maps saved", flush=True)
 
 
-if not C.EARLY and 0 not in maps["cnn"] and (CACHE / "t2_cnn_full.pt").exists():
+if not C.EARLY and not TAG and 0 not in maps["cnn"] and (CACHE / "t2_cnn_full.pt").exists():
     n0 = C.Net()
     n0.load_state_dict(torch.load(CACHE / "t2_cnn_full.pt"))
     cnn_maps(n0, 0)
@@ -96,9 +98,9 @@ for sd in SEEDS:
     net_c = C.train_model(data, epochs=25, seed=sd)
     del data
     gc.collect()
-    torch.save(net_c.state_dict(), CACHE / f"t2_cnn_full{'_early' if C.EARLY else ''}_s{sd}.pt")
+    torch.save(net_c.state_dict(), CACHE / f"t2_cnn_full{'_early' if C.EARLY else TAG}_s{sd}.pt")
     cnn_maps(net_c, sd)
-if C.EARLY:  # the early/visible-history CNN maps are combined with tfb.t2_assemble
+if C.EARLY or TAG:  # the early/visible-history CNN maps are combined with tfb.t2_assemble
     print("EARLY CNN maps done, seeds", sorted(maps["cnn"]), flush=True)
     sys.exit(0)
 # combine
