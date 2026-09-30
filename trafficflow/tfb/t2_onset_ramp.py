@@ -28,14 +28,20 @@ def ramp_index(p, z):
 
 
 def ramp_feats(z, d, T, links, idx, flow_key):
+    """Ramp features from the split's arrays (visible history rows T-60..T-5 only)."""
+    mf = pd.DataFrame(z[flow_key][d, T - 12:T]).ffill().to_numpy()[-1]
+    return ramp_feats_arr(z["ramp_flow"][d, T - 12:T], mf, links, idx)
+
+
+def ramp_feats_arr(rf, mf, links, idx):
+    """rf: (12, n_ramps) ramp flows over T-60..T-5; mf: (L,) last visible mainline flow per link."""
     on, off, cap = idx
     L = len(on)
-    rf = z["ramp_flow"][d, T - 12:T]                         # visible history rows only (T-60..T-5)
-    mf = pd.DataFrame(z[flow_key][d, T - 12:T]).ffill().to_numpy()[-1]
+
     def agg(sets, lo_off, hi_off, l):
         ids = [i for j in range(max(0, l + lo_off), min(L, l + hi_off + 1)) for i in sets[j]]
         if not ids:
-            return np.zeros(12)
+            return np.zeros(len(rf))
         return np.nansum(rf[:, ids], axis=1)
     rows = []
     for l in links:
@@ -47,12 +53,8 @@ def ramp_feats(z, d, T, links, idx, flow_key):
     return pd.DataFrame(rows)
 
 
-def main():
-    df = pd.read_parquet(CACHE / "t2_onset.parquet")
-    df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
-    df = o2.add_cluster(df)
-    cands = {p: sorted(df[df.panel == p].link.unique().tolist()) for p in T2P}
-    cms = {p: o2.clusters(cands[p]) for p in T2P}
+def ramp_frame(df):
+    """Adds the ramp features to the onset training frame (train split, T = s - 6)."""
     parts = []
     for p in T2P:
         z = load(p, "train")
@@ -61,7 +63,16 @@ def main():
         for (d, s), gg in g.groupby(["d", "s"]):
             parts.append(pd.concat([gg.reset_index(drop=True),
                                     ramp_feats(z, d, s - 6, gg.link.to_numpy(), idx, "flow")], axis=1))
-    dr = pd.concat(parts, ignore_index=True)
+    return pd.concat(parts, ignore_index=True)
+
+
+def main():
+    df = pd.read_parquet(CACHE / "t2_onset.parquet")
+    df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
+    df = o2.add_cluster(df)
+    cands = {p: sorted(df[df.panel == p].link.unique().tolist()) for p in T2P}
+    cms = {p: o2.clusters(cands[p]) for p in T2P}
+    dr = ramp_frame(df)
     print("frame", len(dr), dr[RP].describe().loc[["mean", "std"]].round(1).to_dict(), flush=True)
     variants = {"base": dr.drop(columns=RP), "ramp": dr}
     models = {k: (fit_general(v), {f: fit_general(v[v.d % 2 != f]) for f in (0, 1)}) for k, v in variants.items()}

@@ -808,3 +808,31 @@ S_physics ≈ 0.70 → 0.045; S_ODME ≈ 0.85–0.90 → 0.025.
 * Onset: the models had **no ramp features**, although bottleneck activation is mainline + on-ramp demand vs capacity and
   ramp flows are published. Testing (`tfb/t2_onset_ramp.py`): on-ramp flow up to 2 links upstream, off-ramp flow up to 2
   downstream, demand ratio (mainline + on-ramp) / capacity, all from T−60…T−5.
+
+### Onset ramp-demand features: adopted by the pre-set rule (2026-09-30)
+
+`tfb/t2_onset_ramp.py`, onset IoU panel-mean (in scenario = train 2-fold; out = val/private masked-layer events):
+
+| | train | validation | private |
+|---|---|---|---|
+| v9b structure (visible history) | 0.893 | 0.7645 | 0.766 |
+| + ramp-demand features | 0.889 | **0.8248** | **0.7871** |
+
+Panel-weighted out-of-scenario Δ **+0.041 ± 0.016** (bootstrap, P(>0) 0.997), both splits positive, in scenario −0.004.
+The gain is D7_I405_S (+0.53 val, +0.22 pri), the panel whose bottlenecks switch in opposite directions in March and April.
+D7_I210_W loses (−0.08 / −0.03); six panels are unchanged. Few events on D7_I405_S (5 val, 7 pri): the size is uncertain,
+the direction is not.
+
+**V11: probe/breakthrough, "ramp demand identifies the active bottleneck in a new scenario"** (`sub_v11.zip`,
+`queue_models14_v11.csv`, built with `TFB_ONSET_RAMP=1 python -m tfb.t2_v10 0 …`)
+* Change vs V10a: onset models get the 6 ramp features (ramp flows T−60…T−5 from the published ramp layer, last visible
+  mainline flow from the window history). 51 cells differ, mostly D7_I405_S validation windows 1, 2, 4, 5. Ongoing, T1, T4
+  are unchanged.
+* Expected Δ vs V10a: public ≈ 0.15 × 0.06 ≈ **+0.009 (uncertain, ±0.01: only a few windows change)**; private ≈ +0.003.
+* Purpose: probe of the ramp-demand hypothesis. If public ≥ V10a, V11 replaces V10b as the second final pick (or V10a).
+* Actual: **0.86531** (Δ vs V10a **−0.0092**, expected +0.009; deviation −0.018 ≈ −0.12 onset IoU panel-mean). **Rejected.**
+  Not a pipeline bug: ramp data in the window histories are as available as in training (≈ 20% missing everywhere).
+  On the real validation windows (D7_I405_S 1, 2, 4, 5) the ramp model picks the wrong cluster, so the mined-event gain on
+  that panel (5 val events) was small-sample luck.
+* **Rule tightened:** a pooled out-of-scenario gain counts only if it is not carried by one panel: at least half of the
+  changed panels must improve in both splits, and the gain must survive dropping the best panel.

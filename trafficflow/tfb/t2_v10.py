@@ -19,6 +19,8 @@ from .t2_onset_shift import fit_general
 from .t2_onset_shift_cal import probs
 from .t2_onset_shift_ens import decode_pool
 
+RAMP = os.environ.get("TFB_ONSET_RAMP", "0") == "1"   # onset with ramp-demand features (t2_onset_ramp)
+
 
 def onset_windows(split, models, cands, w):
     out = {}
@@ -28,6 +30,12 @@ def onset_windows(split, models, cands, w):
         vcut = 0.6 * net.free_speed_kmh.to_numpy()
         cap = net.capacity_vph.to_numpy()
         cm = o2.clusters(cands[p])
+        if RAMP:
+            from .data import load
+            from .t2_onset_ramp import ramp_feats_arr, ramp_index
+            zs = load(p, split)
+            ridx = ramp_index(p, zs)
+            di = {str(dd): i for i, dd in enumerate(zs["dates"].tolist())}
         wi = pd.read_csv(REL / "task2" / p / split / "window_index.csv")
         h = pd.read_parquet(REL / "task2" / p / split / "window_history.parquet")
         for r in wi[wi.condition == "queue_onset"].itertuples():
@@ -43,6 +51,12 @@ def onset_windows(split, models, cands, w):
             X["pid"] = T2P.index(p)
             X["panel"], X["d"], X["s"] = p, 0, 0
             X["cl"] = X.link.map(cm)
+            if RAMP:   # ramp flows over T-60..T-5 (published, pre-origin) + last visible mainline flow of the window
+                d = di[T0.strftime("%Y-%m-%d")]
+                T = T0.hour * 12 + T0.minute // 5
+                mf = pd.DataFrame(hf[:12]).ffill().to_numpy()[-1]
+                X = pd.concat([X.reset_index(drop=True),
+                               ramp_feats_arr(zs["ramp_flow"][d, T - 12:T], mf, X.link.to_numpy(), ridx)], axis=1)
             es = [probs(m, X) for m in models]
             out[r.window_id] = sorted(decode_pool(es, [1 - w, w]))
     return out
@@ -55,6 +69,9 @@ def main():
     df["pid"] = df.panel.map({p: i for i, p in enumerate(T2P)})
     df = o2.add_cluster(df)
     cands = {p: sorted(df[df.panel == p].link.unique().tolist()) for p in T2P}
+    if RAMP:
+        from .t2_onset_ramp import ramp_frame
+        df = ramp_frame(df)
     models = [fit_general(df), fit_general(df, drop=("tod", "dow"))]
     q = pd.concat([predict(s, onset_windows=onset_windows(s, models, cands, w)) for s in ("validation", "private")],
                   ignore_index=True)
