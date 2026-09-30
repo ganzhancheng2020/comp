@@ -711,10 +711,26 @@ Production check: `tfb/t2_v10.py` with the old frame and w=0 reproduces v9b's on
   ≈ +0.0065 + 0.0008 ≈ +0.007.
 * Purpose: goal criterion B (T-row-fixed version ≥ +0.005 online vs v9b), and confirmation that the out-of-scenario
   evaluator predicts online.
+* Actual: **0.87446** (Δ vs v9b **+0.0034**, expected +0.005; −0.0016 deviation, within the ≈ 0.005 noise). **New best.**
+  The direction confirms the onset origin-row fix. Criterion B (≥ +0.005) is not formally met.
 
 **V10b: probe, "onset ensemble with the no-tod variant"** (`sub_v10b.zip`, `queue_models13_v10b.csv`)
 * Change vs V10a: onset = pooled ensemble (w=0.5), 75 onset cells differ from v9b.
 * Expected Δ vs v9b: public ≈ 0.15·0.027 + 0.0006 ≈ **+0.0046** (≈ V10a − 0.0008); private ≈ +0.014.
 * Purpose: check that the ensemble costs nothing on public (validation says ≈ −0.005 onset vs V10a). The private gain
   cannot be seen on public; if V10b ≥ V10a − 0.004, the ensemble becomes a final candidate on its private evidence.
+* Actual: **0.87109** (Δ vs V10a **−0.0034**, expected −0.0008). This is inside the pre-registered threshold (≥ V10a − 0.004),
+  so the ensemble stays a final candidate. On validation both signals say it is slightly worse (masked-layer events −0.005,
+  online −0.023 onset IoU); its case rests on private-period events (+0.046), where public cannot confirm it.
 * The other three 09-30 submissions stay unassigned until V10a/V10b come back.
+
+### 2026-09-30 status (00:10 UTC)
+
+* Public best: **V10a 0.87446** (onset origin-row fix + P1 ongoing).
+* Final-selection plan (2 picks): **V10a** (best public, and better than v9b on every out-of-scenario test) + **V10b** (highest
+  private expected value, +0.007 over V10a by private-period events, −0.0034 on public). v9b and P2 drop out: V10a dominates v9b,
+  and P2's CNN is worse out of scenario.
+* The remaining 3 submissions today: none is ready with a positive expected Δ. Next candidate is the ongoing CNN
+  retrained on the visible history **without** the early channels, 4 seeds (the old CNN is still trained with the T row).
+  It is judged by `t2_ongoing_shift.py` first; a submission only follows if it beats the old CNN out of scenario. Otherwise
+  the slots stay unused (reason: no candidate with a positive expected Δ).
