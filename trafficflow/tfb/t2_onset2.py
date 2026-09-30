@@ -35,6 +35,7 @@ def add_cluster(df: pd.DataFrame) -> pd.DataFrame:
 def cluster_frame(df: pd.DataFrame, link_feats: list[str]) -> pd.DataFrame:
     agg = {c: ["mean", "min", "max"] for c in ("r0", "r1", "r3", "r6", "rmin3", "rtrend", "q0", "q3", "qmean",
                                                 "nb_rmin", "nb_q", "up_r", "dn_r")}
+    agg.update({c: ["mean", "max"] for c in df.columns if c.startswith("rp_")})   # optional ramp features
     c = df.groupby(["panel", "d", "s", "cl"]).agg(agg)
     c.columns = ["_".join(x) for x in c.columns]
     first = df.groupby(["panel", "d", "s", "cl"])[["tod", "dow", "pid", "cor_rmin", "cor_q"]].first()

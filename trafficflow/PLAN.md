@@ -801,3 +801,10 @@ S_physics ≈ 0.70 → 0.045; S_ODME ≈ 0.85–0.90 → 0.025.
 * So the headroom is T2, and on T2 it is the scenario shift. Onset: in scenario 0.893 vs out 0.765. Ongoing: being
   measured (`tfb/t2_ongoing_idshift.py`: same masked input in and out of scenario, and with vs without the
   identity/time features).
+* Ongoing, same masked-layer input in and out of scenario (`t2_ongoing_idshift.py`, 30% subsample LightGBM): persistence
+  0.476 / 0.475 / 0.484 (train / val / pri, equally hard windows); model **0.898 in scenario vs 0.861 / 0.869 out**, so
+  ≈ 0.033 of scenario shift. Dropping the identity/time features (link, lpos, tod, dow; also pid, is_bneck) costs 0.02 in
+  scenario and −0.003 ± 0.002 out of scenario: the shift is in the dynamics (capacities), not in memorised identities.
+* Onset: the models had **no ramp features**, although bottleneck activation is mainline + on-ramp demand vs capacity and
+  ramp flows are published. Testing (`tfb/t2_onset_ramp.py`): on-ramp flow up to 2 links upstream, off-ramp flow up to 2
+  downstream, demand ratio (mainline + on-ramp) / capacity, all from T−60…T−5.
