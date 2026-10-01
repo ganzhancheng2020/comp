@@ -136,6 +136,58 @@ def common_factors(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarr
 
 
 CF = __import__("os").environ.get("TFB_CF", "0") == "1"
+RAMP_RATIO = __import__("os").environ.get("TFB_RAMP_RATIO", "1") == "1"
+
+
+def ramp_profile(panel: str) -> np.ndarray:
+    """Mean train ramp flow per (weekend flag, slot, ramp)."""
+    path = CACHE / f"{panel}_ramp_profile.npy"
+    if path.exists():
+        return np.load(path)
+    z = load(panel, "train")
+    we = pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5
+    rf = np.where(z["ramp_pct"] >= 75, z["ramp_flow"], np.nan)
+    out = np.stack([np.nanmean(rf[~we], 0), np.nanmean(rf[we], 0)]).astype(np.float32)
+    np.save(path, out)
+    return out
+
+
+def ramp_ratio_features(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Ramp flows relative to their time-of-day profile, as a congestion sensor.
+
+    On-ramp inflow collapses (5-70% of its profile) while the mainline link it feeds is queued, and off-ramp flow rises
+    ~10%. The ramp layer is published at every slot, including the 90-minute mainline blackout after each Task 2 origin,
+    so it locates the queue inside that blackout (Task 1 is offline reconstruction: every published observation of the
+    split is an input)."""
+    prof = ramp_profile(panel)
+    we = (pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5).astype(int)
+    rf = np.where(z["ramp_pct"] >= 75, z["ramp_flow"], np.nan)
+    ratio = rf / np.maximum(prof[we], 1.0)                     # (D, T, n_ramps)
+    rid = {x: i for i, x in enumerate(z["ramps"].tolist())}
+    D, T = rf.shape[:2]
+    L = len(net)
+    out = {}
+    for kind, col in (("on", "on_ramp_link_ids"), ("off", "off_ramp_link_ids")):
+        num = np.zeros((D, T, L), np.float32)
+        cnt = np.zeros((D, T, L), np.float32)
+        for l, ids in enumerate(net[col].fillna("")):
+            for x in str(ids).split(";"):
+                if x in rid:
+                    v = ratio[:, :, rid[x]]
+                    ok = np.isfinite(v)
+                    num[:, :, l] += np.where(ok, v, 0)
+                    cnt[:, :, l] += ok
+        r = np.where(cnt > 0, num / np.maximum(cnt, 1), np.nan).astype(np.float32)
+        rt = r.copy()                                           # +-1 slot temporal mean (ramp loops miss ~20%)
+        rt[:, 1:-1] = np.nanmean(np.stack([r[:, :-2], r[:, 1:-1], r[:, 2:]]), 0)
+        out[f"r{kind}"] = r
+        out[f"r{kind}_t"] = rt
+        out[f"r{kind}_w2"] = _window_mean(rt, 2)
+        out[f"r{kind}_w5"] = _window_mean(rt, 5)
+    low = np.where(np.isfinite(out["ron_t"]), (out["ron_t"] < 0.6).astype(np.float32), np.nan)
+    out["ron_low_w3"] = _window_mean(low, 3)
+    out["ron_low_w8"] = _window_mean(low, 8)
+    return out
 
 
 def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool = False) -> pd.DataFrame:
@@ -188,6 +240,9 @@ def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool
         num = csum[d, hi, l] - csum[d, lo, l]
         den = ccnt[d, hi, l] - ccnt[d, lo, l]
         F[f"{c}_rel1h"] = np.where(den > 0, num / np.maximum(den, 1), np.nan).astype(np.float32)
+    if ramps and RAMP_RATIO:
+        for k, a in ramp_ratio_features(panel, z, net).items():
+            F[k] = a[d, t, l]
     if ramps:
         on, off = ramp_link_flows(panel, z, net)
         for k in (-1, 0, 1):
