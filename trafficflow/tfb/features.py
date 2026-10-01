@@ -53,6 +53,19 @@ def shift_l(a: np.ndarray, k: int) -> np.ndarray:
 PROF_SCEN = __import__("os").environ.get("TFB_PROF_SCEN", "0") == "1"   # profiles from the split's own layer
 
 
+def profile_of(z: dict) -> dict[str, np.ndarray]:
+    """Profile of an in-memory masked layer (same definition as profile())."""
+    we = pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5
+    return {c: np.stack([np.nanmean(z[k][~we], 0), np.nanmean(z[k][we], 0)]).astype(np.float32)
+            for c, k in (("speed", "m_speed"), ("flow", "m_flow"), ("occ", "m_occ"))}
+
+
+def plateau_of(v: np.ndarray) -> np.ndarray:
+    L = v.shape[2]
+    med = np.nanmedian(v.reshape(-1, L), 0)
+    return np.array([np.nanmedian(v[:, :, l][v[:, :, l] > 0.85 * med[l]]) for l in range(L)], np.float32)
+
+
 def profile(panel: str, split: str = "train") -> dict[str, np.ndarray]:
     """Mean observed value per (weekend flag, slot, link) over a masked layer (train by default)."""
     split = split if PROF_SCEN else "train"
@@ -133,7 +146,7 @@ def common_factors(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarr
     Free-flow speed noise has a corridor-wide component (corr ~0.3 between links 10+ apart): at a masked
     cell it is estimated from the other links observed at the same slot. Flow uses second-difference
     residuals q_t - (q_{t-1} + q_{t+1}) / 2 per lane (white noise is not smoothable; a shared component is)."""
-    pl = plateau(panel, split_of(z))
+    pl = z["_plat"] if "_plat" in z else plateau(panel, split_of(z))
     v = z["m_speed"]
     ffm = v > 0.85 * pl
     e = np.where(ffm, v - pl, np.nan)
