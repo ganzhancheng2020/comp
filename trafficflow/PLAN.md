@@ -901,3 +901,16 @@ Onset with row T (`tfb/t2_onset_vt_ab.py`): train +0.004 (n.s.), validation −0
 ### Rejected / closed this round
 * Physics-based onset location (FD-implied capacity, demand/capacity ratios): no precursor exists in this generator (above).
 * Window history carries nothing beyond the masked layer (identical values where both exist).
+* Earlier days of the same split as onset evidence (`tfb/t2_onset_prior_days.py`, causal: days strictly before the
+  event): 23 mined events on days 2–7 (the window period), 7 with a wrong top cluster. Both the true and the predicted
+  cluster queued on almost every earlier day (day rates 0.85–1.0 in every split), so the evidence separates only 1 of the
+  7. The scenario shift is in *when within the day* a cluster activates, not whether. **Closed.**
+
+### Process lessons (round 1)
+* **Never run torch next to LightGBM.** OpenMP spin-waiting made CNN training ≈ 30× slower (45–60 ms vs 1.5–6.8
+  ms per window). Jobs now run strictly in sequence (`t2_prod lgb` → `cnn 0..3`).
+* The memory cgroup kills at ≈ 10 GB total (two OOM kills while two big jobs overlapped). Big frames are read per panel
+  and row-filtered in Arrow before pandas.
+* Artifacts are mirrored to the private Kaggle dataset `baccano/tfb-steins-artifacts` (models + per-task files), so a
+  container reclaim no longer loses compute. Rebuild: `TFB_CF=1 python -m tfb.t1_prod`, `python -m tfb.t4 l2`,
+  `python -m tfb.t2_build_parts t2_ongoing_parts_vt 1 0.6`, `python -m tfb.t2_prod lgb|cnn <seed>|assemble <name>`.

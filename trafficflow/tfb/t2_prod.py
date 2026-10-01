@@ -105,10 +105,18 @@ def train_crop(data, epochs, seed, crop=64, bs=48, lr=2e-3):
 
 
 def train_cnn(seed, epochs):
+    """Same recipe as the V10a CNN seeds (t2_final2): per-panel permutation with rng(100 + seed), t2_cnn.train_model.
+    Never run next to a LightGBM job: OpenMP spin-waiting between the two makes torch ~30x slower on this machine."""
     import torch
-    data = {p: cnn_data(p) for p in T2P}
+    from . import t2_cnn as C
+    rng = np.random.default_rng(100 + seed)
+    data = {}
+    for p in T2P:
+        X, Y, E = cnn_data(p)
+        perm = rng.permutation(len(X))
+        data[p] = (X[perm], Y[perm], E[perm])
     print("cnn data", {p: len(v[0]) for p, v in data.items()}, flush=True)
-    net = train_crop(data, epochs, seed)
+    net = C.train_model(data, epochs=epochs, seed=seed)
     torch.save(net.state_dict(), CACHE / f"t2p_cnn_vt_s{seed}.pt")
 
 
