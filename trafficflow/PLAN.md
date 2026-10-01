@@ -956,3 +956,32 @@ Blend − LightGBM +0.013 ± 0.002. Threshold 0.45 is again +0.002 ± 0.001 in b
   per-link constant measured on train must be checked out of scenario.**
 * Container restarts (uptime reset at 22:03 and 22:33 UTC) killed running jobs twice; jobs are now restartable
   (models cached on disk) and waits are kept short.
+
+### Out-of-scenario Task 1 results (`tfb/t1_shift_eval.py`, leak-free: split statistics recomputed with the hidden cells removed)
+Hidden observed cells of validation/private (3%, ≈ 39k per panel-split), RMSE mean over panels, private / validation:
+
+| main model | speed | flow/lane |
+|---|---|---|
+| V10a-type (no cf), train profile | 1.888 / 1.883 | 30.26 / 30.32 |
+| cf, **train plateau (V12)** | 1.914 / 1.892 | 30.26 / 30.32 |
+| **cf, split plateau** | **1.584 / 1.524** | 30.26 / 30.32 |
+| cf, split plateau + split profile | 1.573 / 1.520 | 30.58 / 30.61 |
+
+Synthetic blackouts on validation/private (gap specialist):
+
+| gap model | speed | flow/lane |
+|---|---|---|
+| old (no ramps) | 6.32 / 6.50 | 68.3 / 68.9 |
+| ramps, **train ramp profile (V12)** | **9.78 / 9.83** | **114 / 110** |
+| ramps, split ramp profile | 5.58 / 5.72 | 65.7 / 65.1 |
+| ramps, split ramp + split speed/flow profile | **4.92 / 5.10** | 65.7 / 65.3 |
+
+Readings:
+* V12's T1 was worse than V10a's on both counts (cf anchor off by the plateau shift; ramp ratios off by the demand shift
+  → gap speed RMSE +50%). Estimated T1 loss ≈ −0.002, so V12's −0.0012 implies the T2 origin-row change gained
+  ≈ +0.002–0.003 online, in line with its out-of-scenario evidence.
+* The V10a model itself carries scenario error (train profiles); a split plateau removes most of it: speed −0.30/−0.36,
+  ≈ +0.007 S_state ≈ **+0.0025 total**. Statistics measured on the split's own published masked layer are the general fix.
+* V12b = V12 with T1 from `tfb/t1_predict.py` (cf speed with split plateau + train profiles; ramp gap specialist with the
+  split's ramp and speed/flow profiles). T2/T4 unchanged from V12. Expected Δ vs V10a ≈ +0.0025 (T1 main) + 0.0005
+  (gap) + T2 ≈ +0.002 + physics ≈ **+0.005**; vs V12 ≈ +0.006.
