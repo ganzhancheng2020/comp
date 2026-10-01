@@ -85,6 +85,59 @@ def ramp_link_flows(panel: str, z: dict, net: pd.DataFrame):
     return on, off
 
 
+def plateau(panel: str) -> np.ndarray:
+    """Per-link free-flow speed plateau: median of observed train speeds above 0.85 x the link median.
+    The generator's free-flow branch is flat (speed = plateau + noise at any flow), so speed - plateau
+    at a free-flowing cell is pure measurement noise."""
+    path = CACHE / f"{panel}_plateau.npy"
+    if path.exists():
+        return np.load(path)
+    v = load(panel, "train")["m_speed"]
+    L = v.shape[2]
+    med = np.nanmedian(v.reshape(-1, L), 0)
+    out = np.array([np.nanmedian(v[:, :, l][v[:, :, l] > 0.85 * med[l]]) for l in range(L)], np.float32)
+    np.save(path, out)
+    return out
+
+
+def _window_mean(a: np.ndarray, k: int) -> np.ndarray:
+    """NaN-mean over links l-k..l+k (excluding l itself), along the last axis."""
+    v = np.nan_to_num(a, nan=0.0)
+    c = (~np.isnan(a)).astype(np.float32)
+    pad = [(0, 0)] * (a.ndim - 1) + [(k + 1, k)]
+    cv, cc = np.cumsum(np.pad(v, pad), -1), np.cumsum(np.pad(c, pad), -1)
+    L = a.shape[-1]
+    s = cv[..., 2 * k + 1:2 * k + 1 + L] - cv[..., :L] - v
+    n = cc[..., 2 * k + 1:2 * k + 1 + L] - cc[..., :L] - c
+    return np.where(n > 0, s / np.maximum(n, 1), np.nan).astype(np.float32)
+
+
+def common_factors(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Measurement noise shared by all links at the same 5-minute slot (corridor-wide common mode).
+
+    Free-flow speed noise has a corridor-wide component (corr ~0.3 between links 10+ apart): at a masked
+    cell it is estimated from the other links observed at the same slot. Flow uses second-difference
+    residuals q_t - (q_{t-1} + q_{t+1}) / 2 per lane (white noise is not smoothable; a shared component is)."""
+    pl = plateau(panel)
+    v = z["m_speed"]
+    ffm = v > 0.85 * pl
+    e = np.where(ffm, v - pl, np.nan)
+    er = np.where(ffm, v / pl - 1, np.nan)
+    F = {"cf_sp": np.nanmean(e, 2), "cf_sp_rel": np.nanmean(er, 2), "cf_sp_n": np.isfinite(e).sum(2).astype(np.float32)}
+    F = {k: np.broadcast_to(x[..., None], v.shape) for k, x in F.items()}
+    F["cf_sp_loc"] = _window_mean(e, 5)
+    q = z["m_flow"] / net.lanes.to_numpy(np.float32)
+    r2 = np.full_like(q, np.nan)
+    r2[:, 1:-1] = q[:, 1:-1] - (q[:, :-2] + q[:, 2:]) / 2
+    F["cf_fl"] = np.broadcast_to(np.nanmean(r2, 2)[..., None], v.shape)
+    F["cf_fl_loc"] = _window_mean(r2, 3)
+    F["plat"] = np.broadcast_to(pl, v.shape)
+    return F
+
+
+CF = __import__("os").environ.get("TFB_CF", "0") == "1"
+
+
 def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool = False) -> pd.DataFrame:
     """Features for cells idx = (d, t, l) arrays. z holds the masked arrays of the split."""
     d, t, l = idx
@@ -143,6 +196,9 @@ def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool
         fm = z["m_flow"]
         F["cons_up"] = (shift_l(fm, -1) + on - off)[d, t, l]
         F["cons_dn"] = (shift_l(fm, 1) - shift_l(on, 1) + shift_l(off, 1))[d, t, l]
+    if CF:
+        for k, a in common_factors(panel, z, net).items():
+            F[k] = a[d, t, l]
     df = pd.DataFrame(F)
     # derived
     df["k_lin"] = df.flow_lin / df.speed_lin.clip(lower=1)

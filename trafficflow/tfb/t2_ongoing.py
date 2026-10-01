@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .data import CACHE, REL, load, network
-from .t2_events import queue_truth, visible
+from .t2_events import queue_truth, visible, visible_t
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 T2P = ["D7_I10_E", "D7_I10_W", "D7_I210_E", "D7_I210_W", "D7_I405_N", "D7_I405_S", "D12_I5_N", "D12_I5_S"]
@@ -130,7 +130,8 @@ def cell_features(hs, hf, vcut, cap, T, dow, rich: bool = True, margin: int | No
     return pd.DataFrame(rows)
 
 
-def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, margin: int | None = None, bneck=(), use_early: bool = False):
+def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, margin: int | None = None, bneck=(), use_early: bool = False,
+                t_row: bool = False):
     rng = np.random.default_rng(seed)
     z = load(panel, "train")
     Q, vcut = queue_truth(panel, z=z)
@@ -145,7 +146,11 @@ def train_frame(panel: str, stride: int = 3, seed: int = 0, keep: float = 1.0, m
             fut = Q[d, T + 1:T + 7]
             if not fut.any() or not is_ongoing(hq) or rng.random() > keep:
                 continue
-            X = cell_features(visible(hsd, T), visible(z["flow"][d], T), vcut, cap, T, dow[d], margin=margin, bneck=bneck,
+            if t_row:   # origin row from the masked layer, as published in validation/private
+                hs_, hf_ = visible_t(hsd, z["m_speed"][d], T), visible_t(z["flow"][d], z["m_flow"][d], T)
+            else:
+                hs_, hf_ = visible(hsd, T), visible(z["flow"][d], T)
+            X = cell_features(hs_, hf_, vcut, cap, T, dow[d], margin=margin, bneck=bneck,
                               early=early_features(z["m_speed"][d], T, vcut) if use_early else None)
             if X is None:
                 continue

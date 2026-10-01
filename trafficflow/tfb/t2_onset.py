@@ -9,7 +9,7 @@ import warnings
 from .data import CACHE, REL, load, network
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-from .t2_events import onset_events, queue_truth, visible
+from .t2_events import onset_events, queue_truth, visible, visible_t
 
 HIST = 13  # slots T-60 .. T
 
@@ -41,7 +41,7 @@ def link_features(hist_speed, hist_flow, vcut, cap, T, links, dow):
     return pd.DataFrame(rows)
 
 
-def train_frame(panel: str):
+def train_frame(panel: str, t_row: bool = False):
     z = load(panel, "train")
     Q, vcut = queue_truth(panel, z=z)
     net = network(panel)
@@ -54,7 +54,10 @@ def train_frame(panel: str):
         T = s - 6
         if T - 12 < 0:
             continue
-        hs, hf = visible(z["speed"][d], T), visible(z["flow"][d], T)   # origin row T is never published
+        if t_row:   # origin row T from the masked layer (~58% observed), as published in validation/private
+            hs, hf = visible_t(z["speed"][d], z["m_speed"][d], T), visible_t(z["flow"][d], z["m_flow"][d], T)
+        else:
+            hs, hf = visible(z["speed"][d], T), visible(z["flow"][d], T)   # origin row T missing
         X = link_features(hs, hf, vcut, cap, T, cand, dow[d])
         X["y"] = X.link.isin(ls).astype(int)
         X["d"], X["s"], X["panel"] = d, s, panel

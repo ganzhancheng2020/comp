@@ -60,3 +60,12 @@ def visible(a_day, T):
     h = np.array(a_day[T - 12:T + 1], dtype=float, copy=True)
     h[-1] = np.nan
     return h
+
+
+def visible_t(a_day, m_day, T):
+    """Like visible(), but the origin row T comes from the published masked layer (~58% of links observed in
+    validation/private: the Task 1 targets are blank there, everything else is published). Rows T-60..T-5 are the
+    window history (published raw)."""
+    h = np.array(a_day[T - 12:T + 1], dtype=float, copy=True)
+    h[-1] = m_day[T]
+    return h
