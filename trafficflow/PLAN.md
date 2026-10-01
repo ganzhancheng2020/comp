@@ -942,3 +942,17 @@ Blend − LightGBM +0.013 ± 0.002. Threshold 0.45 is again +0.002 ± 0.001 in b
   onset and ongoing models are retrained from rebuilt frames (not bit-identical to V10a).
 * Decision rule: ≥ V10a − 0.002 → V12 replaces V10b as a final pick (its private EV is the highest on every
   out-of-scenario test); below that → look for a rebuild bug before anything else.
+* **Actual: 0.87324** (Δ vs V10a −0.0012; expected +0.004–0.0055; deviation ≈ −0.006). Inside the pre-registered rule
+  (≥ V10a − 0.002), but the deviation is ≈ 1.5 sd, so it was investigated before anything else.
+* Diagnosis 1 (found): **free-flow plateaus move per link in the new scenarios.** Median(speed − train plateau) per link has
+  sd 0.8–1.7 km/h across links in validation and private (0 in train by construction). The cf speed model learned in train
+  that plateau + common mode is an exact free-flow anchor; in validation/private that anchor is off by ≈ 1.3 km/h per
+  link, comparable to the noise it removes. V10a's model did not see the plateau and followed each link's own
+  neighbours, so it was immune. Fix: plateaus (and ramp profiles) are measured on the split's own published masked layer
+  (`features.SCEN = "split"`; Task 1 is offline reconstruction, every published observation of the split is an input).
+* New evaluator `tfb/t1_shift_eval.py` (out of scenario for Task 1): hide 3% of the observed eligible cells of
+  validation/private (evaluation only), rebuild features, score base vs cf models under train vs split plateaus; and
+  synthetic blackouts on validation/private for the gap specialist. **Lesson: every Task 1 feature that encodes a
+  per-link constant measured on train must be checked out of scenario.**
+* Container restarts (uptime reset at 22:03 and 22:33 UTC) killed running jobs twice; jobs are now restartable
+  (models cached on disk) and waits are kept short.
