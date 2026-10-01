@@ -7,3 +7,4 @@ tfb_ref/
 out_t4_*.log
 t1_*.log
 t2_*.log
+/*.log

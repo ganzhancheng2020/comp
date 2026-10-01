@@ -848,3 +848,56 @@ kinematics.
 
 **2026-09-30: the last 2 submissions stay unused.** No candidate has a credible positive expected Δ above the public noise.
 Public best stays V10a (0.87446); final picks V10a + V10b.
+
+## Round 1 under GOAL.md (2026-10-01): first-principles re-audit, two adopted changes
+
+Context: leaderboard on 2026-10-01: we are #24 at 0.87446 (V10a); #1 0.92406, #20 ≈ 0.877. The `out/` directory and every
+trained model were lost with the old container, and Kaggle does not serve past submission files, so the pipeline is being
+rebuilt (recipes now in code: `tfb/t1_prod.py`, `tfb/t2_build_parts.py`, `tfb/t2_prod.py`).
+
+### Generator facts (measured on train, D7_I10_E / D12_I5_S / D7_I405_S)
+* The fundamental diagram is two flat plateaus: free flow at a per-link speed `plat` (v/vf ≈ 1.00 at every flow level, p10–p90
+  ±1.5%), queue at ≈ 0.35·vf. There is no speed precursor of breakdown, and flow/capacity at the queued cluster before onset
+  is average (0.5–0.7, the top-flow links never queue). Queues switch on as whole blocks (links 4–10 at once).
+  Consequence: onset location is not identifiable from the history; it is a prior (tod, panel, cluster) that the scenario
+  seed changes. This explains the out-of-scenario onset loss; no physics feature can fix it.
+* Free-flow speed noise = observed − plateau has sd 0.8–1.75 km/h per panel, almost white in time (lag-1 0.06), but with a
+  **corridor-wide common mode**: corr ≈ 0.3 between links 1 or 30 apart; the common factor has sd 0.46–1.09 km/h. Flow
+  noise has no usable common mode (second-difference residuals, corr ≈ 0.1 at distance 10).
+
+### Adopted 1 — T1 common-mode features (`features.common_factors`, `TFB_CF=1`)
+cf_sp = mean over links observed at the same slot of (speed − plateau) on free-flowing cells (also relative and ±5-link
+local versions), flow analogues, and `plat`. The target cell is masked, so it never enters its own estimate.
+A/B on the same frames (train days d%4≠0 → held-out d%4==0, 1M cells, 3000 rounds):
+
+| | S_state | speed RMSE | true free-flow speed RMSE | flow/lane RMSE |
+|---|---|---|---|---|
+| V10a features | 0.94260 | 1.678 | 1.250 | 30.80 |
+| + common mode | **0.94457** | **1.588** | **1.094** (ideal plateau+cf: 1.110) | 30.92 |
+
+9/10 panels improve. Flow does not improve → production uses cf features in the speed model only. The free-flow error is now
+at the floor; the remaining speed MSE is 54% from the 4.6% transition/queued cells. S_LWR proxy (Σ|N error| at targets):
+−0.44% (N error is flow-dominated). A physics anchor (residual over plat + cf instead of temporal interpolation) gave no
+further gain (1.5709 vs 1.5773). **Expected Δtotal ≈ +0.001.**
+
+### Adopted 2 — T2 ongoing uses the published origin row T (`t2_events.visible_t`, frame `t2_ongoing_parts_vt`)
+The 2026-09-29 diagnosis "the origin row T is never published" was only half right: `window_history` stops at T−5, but the
+**masked layer publishes row T with ≈58% of links observed** (only T1 targets are blank; the blackout is T+5…T+90), in
+validation and private alike (checked on all 160 windows). The spec gives "60 minutes of history through the forecast origin
+T", so row T is in the information set. Models are now trained with row T from the train masked layer (same ≈58% pattern)
+and fed the masked-layer row T at inference.
+Paired A/B, ongoing LightGBM (35% of windows, 600 rounds; `tfb/t2_vt_ab.py`):
+
+| | persistence | vis (V10a, no row T) | vt (masked row T) | Δ (paired) |
+|---|---|---|---|---|
+| train, 2-fold, selector filter | 0.606 | 0.8942 | **0.9059** | +0.0102 ± 0.0008 |
+| validation, out of scenario | 0.484 | 0.8584 | **0.8816** | +0.0231 ± 0.0025 |
+| private, out of scenario | 0.481 | 0.8628 | **0.8817** | +0.0211 ± 0.0026 |
+
+7/8 panels improve in both splits (D7_I10_W private −0.011, n small); survives dropping the best panel. **Adopted.**
+Onset with row T (`tfb/t2_onset_vt_ab.py`): train +0.004 (n.s.), validation −0.0003, private −0.015 → **rejected** (row T is
+35 minutes before the queue and still free-flowing; no information).
+
+### Rejected / closed this round
+* Physics-based onset location (FD-implied capacity, demand/capacity ratios): no precursor exists in this generator (above).
+* Window history carries nothing beyond the masked layer (identical values where both exist).
