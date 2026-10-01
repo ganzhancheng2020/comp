@@ -914,3 +914,31 @@ Onset with row T (`tfb/t2_onset_vt_ab.py`): train +0.004 (n.s.), validation −0
 * Artifacts are mirrored to the private Kaggle dataset `baccano/tfb-steins-artifacts` (models + per-task files), so a
   container reclaim no longer loses compute. Rebuild: `TFB_CF=1 python -m tfb.t1_prod`, `python -m tfb.t4 l2`,
   `python -m tfb.t2_build_parts t2_ongoing_parts_vt 1 0.6`, `python -m tfb.t2_prod lgb|cnn <seed>|assemble <name>`.
+
+### Adopted 3 — ramp congestion sensor for the T1 gap specialist (`features.ramp_ratio_features`, `tfb/t1_gap_prod.py`)
+On-ramp inflow falls to 5–70% of its time-of-day profile while the mainline link it feeds is queued, and off-ramp flow
+rises ≈ 10% (all three panels checked). The ramp layer is published at ≈ 80% coverage **inside** the 90-minute mainline
+blackout after every Task 2 origin, so for Task 1 (offline reconstruction of the split; every published observation is an
+input) it locates the queue inside the blackout. Task 2 never reads ramp data after T.
+Gap-cell A/B (synthetic blackouts on train, d%4!=0 → d%4==0): speed RMSE 7.775 → **6.187**, flow/lane 78.80 → **73.56**,
+Σ|N err| −22%, 9/10 panels. Production: 200k gap cells per panel, 3000/3500 rounds. Expected Δtotal ≈ +0.0015.
+
+### Production ongoing, out of scenario (`tfb/t2_prod_shift.py`, same mined windows as the 09-30 P1 evaluation)
+
+| private / validation | IoU |
+|---|---|
+| V10a ongoing (P1) | 0.8813 / 0.8772 |
+| vt LightGBM alone (all windows) | 0.8863 / 0.8832 |
+| vt CNN, mean of 2 seeds | 0.8822 / 0.8876 |
+| **vt blend 0.5/0.5, threshold 0.5** | **0.8986 / 0.8980** |
+
+Blend − LightGBM +0.013 ± 0.002. Threshold 0.45 is again +0.002 ± 0.001 in both splits; kept at 0.5 (pre-registered P1 blend).
+
+### V12 (pre-registered 2026-10-01 22:25 UTC): breakthrough, "common mode + ramp-aware gap + origin row"
+`sub_v12.zip` = T1 `state_cfr_gap.csv` (cf speed model, base flow model, ramp-aware gap specialist) + T2 `queue_v12.csv`
+(onset = V10a recipe rebuilt; ongoing = vt LightGBM + 2 vt CNN seeds, 0.5/0.5, thr 0.5) + T4 `odme_l2.csv` (rebuilt).
+* Expected Δ vs V10a: T1 common mode +0.0007, gap ramps +0.0009 (S_state) + physics ≈ +0.0008, ongoing +0.01–0.02 IoU →
+  +0.0015–0.003. **Total ≈ +0.004–0.0055.** Public noise sd ≈ 0.004 for ongoing changes (40 windows). Rebuild noise: the
+  onset and ongoing models are retrained from rebuilt frames (not bit-identical to V10a).
+* Decision rule: ≥ V10a − 0.002 → V12 replaces V10b as a final pick (its private EV is the highest on every
+  out-of-scenario test); below that → look for a rebuild bug before anything else.
