@@ -50,13 +50,17 @@ def shift_l(a: np.ndarray, k: int) -> np.ndarray:
     return out
 
 
-def profile(panel: str) -> dict[str, np.ndarray]:
-    """Mean observed value per (weekend flag, slot, link) over the train masked layer."""
-    path = CACHE / f"{panel}_profile.npz"
+PROF_SCEN = __import__("os").environ.get("TFB_PROF_SCEN", "0") == "1"   # profiles from the split's own layer
+
+
+def profile(panel: str, split: str = "train") -> dict[str, np.ndarray]:
+    """Mean observed value per (weekend flag, slot, link) over a masked layer (train by default)."""
+    split = split if PROF_SCEN else "train"
+    path = CACHE / (f"{panel}_profile.npz" if split == "train" else f"{panel}_{split}_profile.npz")
     if path.exists():
         with np.load(path) as z:
             return {k: z[k] for k in z.files}
-    z = load(panel, "train")
+    z = load(panel, split)
     we = pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5
     out = {}
     for c, k in (("speed", "m_speed"), ("flow", "m_flow"), ("occ", "m_occ")):
@@ -85,14 +89,25 @@ def ramp_link_flows(panel: str, z: dict, net: pd.DataFrame):
     return on, off
 
 
-def plateau(panel: str) -> np.ndarray:
-    """Per-link free-flow speed plateau: median of observed train speeds above 0.85 x the link median.
-    The generator's free-flow branch is flat (speed = plateau + noise at any flow), so speed - plateau
-    at a free-flowing cell is pure measurement noise."""
-    path = CACHE / f"{panel}_plateau.npy"
+SCEN = __import__("os").environ.get("TFB_SCEN", "split")   # "split": plateaus/profiles from the split's own layer
+
+
+def split_of(z: dict) -> str:
+    m = str(z["dates"][0])[:7]
+    return {"2031-03": "validation", "2031-04": "private"}.get(m, "train")
+
+
+def plateau(panel: str, split: str = "train") -> np.ndarray:
+    """Per-link free-flow speed plateau: median of observed speeds above 0.85 x the link median, measured on the
+    split's own published masked layer (Task 1 is offline reconstruction of the split). The generator's free-flow
+    branch is flat (speed = plateau + noise at any flow), so speed - plateau at a free-flowing cell is noise.
+    Validation/private are new scenarios: per-link plateaus move by sd ~1.3 km/h against train, so a train plateau
+    would plant a per-link bias (V12: 0.87324 vs V10a 0.87446)."""
+    split = split if SCEN == "split" else "train"
+    path = CACHE / f"{panel}_{split}_plateau.npy"
     if path.exists():
         return np.load(path)
-    v = load(panel, "train")["m_speed"]
+    v = load(panel, split)["m_speed"]
     L = v.shape[2]
     med = np.nanmedian(v.reshape(-1, L), 0)
     out = np.array([np.nanmedian(v[:, :, l][v[:, :, l] > 0.85 * med[l]]) for l in range(L)], np.float32)
@@ -118,7 +133,7 @@ def common_factors(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarr
     Free-flow speed noise has a corridor-wide component (corr ~0.3 between links 10+ apart): at a masked
     cell it is estimated from the other links observed at the same slot. Flow uses second-difference
     residuals q_t - (q_{t-1} + q_{t+1}) / 2 per lane (white noise is not smoothable; a shared component is)."""
-    pl = plateau(panel)
+    pl = plateau(panel, split_of(z))
     v = z["m_speed"]
     ffm = v > 0.85 * pl
     e = np.where(ffm, v - pl, np.nan)
@@ -139,12 +154,13 @@ CF = __import__("os").environ.get("TFB_CF", "0") == "1"
 RAMP_RATIO = __import__("os").environ.get("TFB_RAMP_RATIO", "1") == "1"
 
 
-def ramp_profile(panel: str) -> np.ndarray:
-    """Mean train ramp flow per (weekend flag, slot, ramp)."""
-    path = CACHE / f"{panel}_ramp_profile.npy"
+def ramp_profile(panel: str, split: str = "train") -> np.ndarray:
+    """Mean ramp flow per (weekend flag, slot, ramp) on the split's own ramp layer (scenario-specific demand)."""
+    split = split if SCEN == "split" else "train"
+    path = CACHE / f"{panel}_{split}_ramp_profile.npy"
     if path.exists():
         return np.load(path)
-    z = load(panel, "train")
+    z = load(panel, split)
     we = pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5
     rf = np.where(z["ramp_pct"] >= 75, z["ramp_flow"], np.nan)
     out = np.stack([np.nanmean(rf[~we], 0), np.nanmean(rf[we], 0)]).astype(np.float32)
@@ -159,8 +175,10 @@ def ramp_ratio_features(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.
     ~10%. The ramp layer is published at every slot, including the 90-minute mainline blackout after each Task 2 origin,
     so it locates the queue inside that blackout (Task 1 is offline reconstruction: every published observation of the
     split is an input)."""
-    prof = ramp_profile(panel)
+    prof = ramp_profile(panel, split_of(z))
     we = (pd.to_datetime(z["dates"]).dayofweek.to_numpy() >= 5).astype(int)
+    if np.isnan(prof).any():            # a month may lack weekend coverage of a slot: fall back to the other flag
+        prof = np.where(np.isnan(prof), np.nanmean(prof, 0, keepdims=True), prof)
     rf = np.where(z["ramp_pct"] >= 75, z["ramp_flow"], np.nan)
     ratio = rf / np.maximum(prof[we], 1.0)                     # (D, T, n_ramps)
     rid = {x: i for i, x in enumerate(z["ramps"].tolist())}
@@ -194,7 +212,7 @@ def build(panel: str, z: dict, idx: tuple, prof: dict | None = None, ramps: bool
     """Features for cells idx = (d, t, l) arrays. z holds the masked arrays of the split."""
     d, t, l = idx
     net = network(panel)
-    prof = prof if prof is not None else profile(panel)
+    prof = prof if prof is not None else profile(panel, split_of(z))
     dates = pd.to_datetime(z["dates"])
     dow = dates.dayofweek.to_numpy()
     we = (dow >= 5).astype(int)

@@ -57,7 +57,7 @@ def panel_frame(panel: str, split: str, day_filter=None, max_rows: int | None = 
     if max_rows is not None and len(t) > max_rows:
         t = t.sample(max_rows, random_state=seed)
     t = t.sort_values(["d", "t", "l"])
-    prof = profile(panel)
+    prof = profile(panel, split)
     parts = []
     nd = len(z["dates"])
     for d0 in range(0, nd, CHUNK):
