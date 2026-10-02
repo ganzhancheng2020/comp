@@ -1012,3 +1012,19 @@ Readings:
   speed and 30.61 / 30.71 flow, against 1.584 / 1.524 and 30.26 / 30.32 for production (300k/4000). Out-of-scenario
   accuracy still grows with training size → round 3 tests 600k rows/panel, 5000 rounds.
 * **Round 2 summary: no adoption** (CNN seeds saturated, onset early evidence n.s., T1 main ramps mixed).
+
+## Round 3 (2026-10-02): T1 capacity, judged out of scenario (`tfb/t1_big.py`)
+600k rows/panel, 5000 rounds (continuous training with a checkpoint callback; per-chunk `init_model` restarts re-predict
+the whole frame and were 5× slower), same hidden cells as production:
+
+| private / validation | speed | flow/lane |
+|---|---|---|
+| production (300k / 4000) | 1.584 / 1.524 | 30.26 / 30.32 |
+| **big (600k / 5000)** | **1.542 / 1.490** | **30.03 / 30.03** |
+
+Speed better on 16/20 panel-splits, flow on 19/20 → **adopted** (to be bundled: ≈ +0.0007 total alone).
+Out of scenario, true free-flow cells (y and interpolation > 0.85 plateau): model 1.145 vs ideal plateau + common mode
+1.152 → free flow is at the floor in the new scenarios too; the remaining speed MSE is queue-edge tails (cells queued in
+time but not in space: RMSE 5–9; within-link queued speed sd ≈ 6 km/h in validation/private).
+Round 4 = capacity round: T1 1.2M rows/panel (float32), gap specialist 400k rows/panel, ongoing LightGBM 2000 rounds;
+bundle into V13 once the out-of-scenario evidence sums to ≥ +0.003.
