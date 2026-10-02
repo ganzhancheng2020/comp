@@ -1005,3 +1005,10 @@ Readings:
   LightGBM + CNN blend is saturated; no more seeds (seed 4 stopped). Threshold 0.45 is +0.0022 ± 0.0008 again (third
   independent evaluation), but worth ≈ +0.0003 total and plausibly an artefact of the sparser masked-layer inputs used
   out of scenario; kept at 0.5.
+* T1 main model + ramp congestion-sensor features (split ramp profile), out of scenario (`tfb/t1_ramp_main_ab.py`, 150k
+  rows/panel, 3000 rounds, same hidden cells): speed private −0.015 / validation +0.009, flow ±0, 12/20 panels better.
+  **Rejected** (ramps only help where the whole mainline is blank, i.e. the gap specialist).
+* Side result (learning curve out of scenario): the same cf/no-ramp recipe at 150k rows/3000 rounds scores 1.652 / 1.583
+  speed and 30.61 / 30.71 flow, against 1.584 / 1.524 and 30.26 / 30.32 for production (300k/4000). Out-of-scenario
+  accuracy still grows with training size → round 3 tests 600k rows/panel, 5000 rounds.
+* **Round 2 summary: no adoption** (CNN seeds saturated, onset early evidence n.s., T1 main ramps mixed).
