@@ -33,12 +33,18 @@ def train():
         cols = feat_cols(tr) if k == "speed" else [c for c in feat_cols(tr) if c not in CFC]
         path = CACHE / f"t1b_{k}.txt"
         done = lgb.Booster(model_file=str(path)).current_iteration() if path.exists() else 0
+        if done >= ROUNDS:
+            continue
         ds = lgb.Dataset(tr[cols], y[k], free_raw_data=False)
-        while done < ROUNDS:
-            m = lgb.train(PARAMS, ds, CHUNK, init_model=str(path) if done else None, keep_training_booster=True)
-            m.save_model(str(path))
-            done = m.current_iteration()
-            print(k, "rounds", done, flush=True)
+
+        def ckpt(env, path=path, k=k):     # one continuous run, checkpoint every CHUNK iterations
+            it = env.iteration + 1
+            if it % CHUNK == 0:
+                env.model.save_model(str(path))
+                print(k, "rounds", env.model.current_iteration(), flush=True)
+        m = lgb.train(PARAMS, ds, ROUNDS - done, init_model=str(path) if done else None, callbacks=[ckpt])
+        m.save_model(str(path))
+        print(k, "done", m.current_iteration(), flush=True)
 
 
 def evaluate():
