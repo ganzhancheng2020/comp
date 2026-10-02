@@ -1120,3 +1120,22 @@ within the compliance rules on the evidence above.
   loss kept falling) and does not transfer — the same failure as the early-channel ongoing CNN. Tree models on
   scenario-normalised features transfer; corridor-pattern models do not.
 * Round 8 summary: one tiny adoption (LightGBM size ensemble, ≈ +0.0002), the spatiotemporal imputer rejected.
+
+## Reachability bound for the prize zone (2026-10-02)
+Public #3 is 0.91665. Give every component except onset a generous ceiling, all at the same time:
+* S_state ≤ 0.9540: every target cell (gaps and queue edges included) at the white-noise floor, speed RMSE 1.10 and flow
+  29.0/lane. Now ≈ 0.942; free flow is already at the floor out of scenario (1.145 vs ideal 1.152).
+* S_physics ≤ 0.77 (proxy 0.73–0.75 now; S_LWR is bounded by flow noise in N = q/v·L at the target cells).
+* S_ODME ≤ 1.0 (L2 ≈ the organizers' ridge reference already).
+* Ongoing IoU ≤ 0.91 (its in-scenario level; out of scenario it is 0.90 on masked-layer windows, lower online).
+
+Then 0.35·0.954 + 0.15·0.77 + 0.20·1.0 + 0.15·0.91 = 0.7859, and reaching 0.91665 needs **onset IoU ≥ 0.872 out of scenario**.
+Measured: onset is 0.893 in scenario (train scenario known), 0.765 out of scenario on masked-layer events, ≈ 0.76 online.
+So the prize zone needs onset at its in-scenario level in an unseen scenario **and** every other component at its
+ceiling simultaneously. The onset gap is the scenario's cluster choice (right cluster → IoU 0.94–0.98, wrong → 0.14–0.16;
+wrong-cluster rate 12% in vs 20% out of scenario), and every causal source of scenario evidence has been tested without
+effect: physical precursors (flat FD, flow/capacity), ramp demand, the origin row, prior days of the split, same-day early
+evidence, recent-day priors, calibration. The only data that reveal the cluster are observations after the
+post-horizon buffer (T+95 onwards), excluded by the Task 2 definition ("participants receive the previous 60 minutes"),
+the rule against recovering hidden labels, and the account holder's decision. **Within the compliance rules the prize
+zone is out of reach**; it becomes reachable only if the organizers rule that post-buffer observations are allowed.
