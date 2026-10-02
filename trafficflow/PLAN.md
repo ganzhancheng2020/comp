@@ -1030,3 +1030,17 @@ Round 4 = capacity round: T1 1.2M rows/panel (float32), gap specialist 400k rows
 bundle into V13 once the out-of-scenario evidence sums to ≥ +0.003.
 * Disk allowance ≈ 39 GB: the first 1.2M-row frame write failed (ENOSPC). Deleted superseded files (V12 per-task and
   merged CSVs, finished A/B frames, the vis ongoing parts); keep ≥ 5 GB free before writing big frames.
+
+## Round 4 (2026-10-02): capacity (`tfb/t1_cap.py`)
+T1 main at 1.2M rows/panel, 5000 rounds (memory-lean: one target's columns, one float32 matrix), out of scenario:
+
+| private / validation | speed | flow/lane |
+|---|---|---|
+| production V12b (300k / 4000) | 1.584 / 1.524 | 30.26 / 30.32 |
+| 600k / 5000 | 1.542 / 1.490 | 30.03 / 30.03 |
+| **1.2M / 5000** | **1.497 / 1.451** | **29.82 / 29.82** |
+
+1.2M vs 600k: speed better on 16/20, flow on 19/20 → **adopted**. Cumulative vs V12b ≈ +0.0013 total (S_state
++0.0021 ≈ +0.0007; flow-driven N error −1.5% ≈ +0.0006 physics). The learning curve has not flattened (each doubling
+≈ −0.04 speed, −0.2 flow out of scenario). The OOM on the first attempt came from building the flow matrix while the
+speed booster still held its dataset; each target now trains in a fresh process with only its columns.

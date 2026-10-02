@@ -34,17 +34,23 @@ def _frame(path, **kw):
 
 
 def _train(path_fr, prefix, rounds, drop_cf_for_flow=True):
-    tr = pd.read_parquet(path_fr)
-    y = targets_of(tr)
+    import gc
+    import pyarrow.parquet as pq
+    allc = pq.read_schema(path_fr).names
     for k in ("speed", "flow"):
-        cols = feat_cols(tr)
+        cols = [c for c in allc if c not in ("d", "t", "l", "regime", "row", "panel", "y_speed", "y_flow")]
         if k == "flow" and drop_cf_for_flow:
             cols = [c for c in cols if c not in CFC]
         path = CACHE / f"{prefix}_{k}.txt"
         done = lgb.Booster(model_file=str(path)).current_iteration() if path.exists() else 0
         if done >= rounds:
             continue
-        ds = lgb.Dataset(tr[cols].to_numpy(np.float32), y[k].to_numpy(), feature_name=cols, free_raw_data=True)
+        # memory-lean: only this target's columns, one float32 matrix, the DataFrame dropped before training
+        tr = pd.read_parquet(path_fr, columns=list(dict.fromkeys(cols + ["y_speed", "y_flow", "speed_lin", "flow_lin", "lanes"])))
+        yk = targets_of(tr)[k].to_numpy()
+        X = tr[cols].to_numpy(np.float32)
+        del tr; gc.collect()
+        ds = lgb.Dataset(X, yk, feature_name=cols, free_raw_data=True)
 
         def ckpt(env, path=path, k=k):
             if (env.iteration + 1) % CHUNK == 0:
@@ -53,7 +59,7 @@ def _train(path_fr, prefix, rounds, drop_cf_for_flow=True):
         m = lgb.train(PARAMS, ds, rounds - done, init_model=str(path) if done else None, callbacks=[ckpt])
         m.save_model(str(path))
         print(prefix, k, "done", m.current_iteration(), flush=True)
-        del ds
+        del ds, X, m; gc.collect()
 
 
 def _eval(gaps, models, out):
