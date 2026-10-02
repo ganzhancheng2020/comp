@@ -20,8 +20,10 @@ if __name__ == "__main__":
     name = sys.argv[1]
     cdir = CACHE / f"t1pred_{name}"
     cdir.mkdir(exist_ok=True)
-    ms = lgb.Booster(model_file=str(CACHE / "t1p_speed.txt"))
-    mf = lgb.Booster(model_file=str(CACHE / "t1p_flow.txt"))
+    main = __import__("os").environ.get("TFB_T1_MAIN", "t1p")   # t1p (V12b, 300k rows) | t1c (1.2M) | t1a (all data)
+    ms = lgb.Booster(model_file=str(CACHE / f"{main}_speed.txt"))
+    mf = lgb.Booster(model_file=str(CACHE / f"{main}_flow.txt"))
+    print("main models", main, flush=True)
     gs = lgb.Booster(model_file=str(CACHE / "t1p_gapr_speed.txt"))
     gf = lgb.Booster(model_file=str(CACHE / "t1p_gapr_flow.txt"))
     parts = []

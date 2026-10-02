@@ -1049,3 +1049,14 @@ speed booster still held its dataset; each target now trains in a fresh process 
   **not adopted** (no new information beyond 200k).
 * Round 5: T1 main on up to 2.4M rows/panel (≈ 20M rows; `tfb/t1_all.py`, matrix filled column-wise into one float32
   array, frames per panel).
+* Round 5, all data (≤ 2.4M rows/panel ≈ 20M rows), out of scenario: speed 1.486 / 1.420, flow 29.69 / 29.68 (vs 1.2M:
+  1.497 / 1.451, 29.82 / 29.82); speed better on 16/20, flow on 19/20 → **adopted**. The curve is flattening (private
+  speed −0.011). Cumulative vs V12b: speed −0.098 / −0.104, flow −0.56 / −0.64 → ≈ +0.0009 (S_state) + ≈ +0.0007
+  (physics, flow-driven N error) ≈ **+0.0016** total.
+
+### V13 candidate (built, not yet submitted)
+V13 = V12b with the T1 main models replaced by the all-data models (`TFB_T1_MAIN=t1a python -m tfb.t1_predict v13`); T1 gap
+specialist, T2 and T4 unchanged. Expected Δ vs V12b ≈ +0.0016 (out-of-scenario evaluator, which predicted V12→V12b to
+within 0.0002). This is below the +0.003 submission rule, and no remaining lever adds enough to reach it (ongoing
+threshold 0.45 ≈ +0.0003; more T1 data/rounds ≈ +0.0002; onset and T4 closed). Because only submitted entries can be
+picked as finals, a final-candidate submission of V13 needs an explicit exception from the account holder.
