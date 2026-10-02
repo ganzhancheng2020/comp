@@ -131,3 +131,56 @@ def predict_day(net, X):
 if __name__ == "__main__":
     if sys.argv[1] == "train":
         train(int(sys.argv[2]) if len(sys.argv) > 2 else 12)
+
+
+def evaluate():
+    """Out-of-scenario hidden cells (t1_shift_eval protocol): LightGBM ensemble (0.75 t1a + 0.25 t1c) vs CNN vs blends."""
+    import lightgbm as lgb
+    import pandas as pd
+    from .t1_shift_eval import SPLITS, hidden
+    out = CACHE / "t1_cnn_res.json"
+    res = json.loads(out.read_text()) if out.exists() else {}
+    net = Net(); net.load_state_dict(torch.load(CACHE / "t1cnn.pt")); net.eval()
+    M = {pre: (lgb.Booster(model_file=str(CACHE / f"{pre}_speed.txt")), lgb.Booster(model_file=str(CACHE / f"{pre}_flow.txt")))
+         for pre in ("t1a", "t1c")}
+    FE.SCEN = "split"
+    for p in panels():
+        for s in SPLITS:
+            key = f"{p}|{s}"
+            if key in res:
+                continue
+            z, zz, idx = hidden(p, s, False)
+            plat = FE.plateau_of(zz["m_speed"]); zz["_plat"] = plat
+            X = FE.build(p, zz, idx, prof=FE.profile(p, "train"))
+            ys, yf, ln = z["m_speed"][idx], z["m_flow"][idx], X.lanes.to_numpy()
+            ens = [0.0, 0.0]
+            for pre, w in (("t1a", 0.75), ("t1c", 0.25)):
+                ms, mf = M[pre]
+                ens[0] = ens[0] + w * (X.speed_lin.to_numpy() + ms.predict(X[ms.feature_name()]))
+                ens[1] = ens[1] + w * (X.flow_lin.to_numpy() + mf.predict(X[mf.feature_name()]) * ln)
+            T, cap = tensors(p, zz, plat)
+            d, t, l = idx
+            cs, cfl = np.empty(len(d), np.float32), np.empty(len(d), np.float32)
+            for dd in np.unique(d):
+                pr = predict_day(net, T[dd])
+                m = d == dd
+                cs[m] = (pr[0, t[m], l[m]] + 1.0) * plat[l[m]]
+                cfl[m] = pr[1, t[m], l[m]] * cap[l[m]]
+            r = {}
+            for w in (0.0, 0.2, 0.35, 0.5, 1.0):
+                sp = (1 - w) * ens[0] + w * cs
+                fl = (1 - w) * ens[1] + w * np.clip(cfl, 0, None)
+                r[str(w)] = [float(np.mean((sp - ys) ** 2)), float(np.mean(((fl - yf) / ln) ** 2))]
+            res[key] = r
+            out.write_text(json.dumps(res))
+            print(key, {k: (round(v[0] ** .5, 3), round(v[1] ** .5, 2)) for k, v in r.items()}, flush=True)
+    dfr = pd.DataFrame([dict(panel=k.split("|")[0], split=k.split("|")[1], w=float(n), speed=v[0] ** .5, flow=v[1] ** .5)
+                        for k, r in res.items() for n, v in r.items()])
+    print(dfr.groupby(["w", "split"])[["speed", "flow"]].mean().unstack("split").round(4))
+    for w in (0.2, 0.35, 0.5):
+        a = dfr[dfr.w == 0.0].set_index(["panel", "split"]); b = dfr[dfr.w == w].set_index(["panel", "split"])
+        print(f"w={w}: speed better on {int((b.speed < a.speed).sum())}/{len(a)}, flow better on {int((b.flow < a.flow).sum())}/{len(a)}")
+
+
+if __name__ == "__main__" and sys.argv[1] == "eval":
+    evaluate()

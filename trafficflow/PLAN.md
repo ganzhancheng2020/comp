@@ -1108,3 +1108,15 @@ within the compliance rules on the evidence above.
 * 8b, spatiotemporal CNN imputer (`tfb/t1_cnn.py`; traffic-imputation family GRIN / SAITS / Graph WaveNet): 36-slot ×
   corridor windows, factorised dilated residual blocks, loss on input-masked cells; to be blended with LightGBM and
   judged on the out-of-scenario hidden cells.
+* 8b result, out of scenario (blend weight w on the CNN; w=0 is the 0.75/0.25 LightGBM ensemble):
+
+| w | speed (pri / val) | flow (pri / val) |
+|---|---|---|
+| 0 | 1.4765 / 1.4161 | 29.64 / 29.63 |
+| 0.2 | 1.5419 / 1.4271 | 31.62 / 30.42 |
+| 1.0 (CNN alone) | 2.2940 / 1.8162 | 58.35 / 47.01 |
+
+  Flow worse on 20/20 at every weight → **rejected**. The imputer fits the train scenario's spatial patterns (training
+  loss kept falling) and does not transfer — the same failure as the early-channel ongoing CNN. Tree models on
+  scenario-normalised features transfer; corridor-pattern models do not.
+* Round 8 summary: one tiny adoption (LightGBM size ensemble, ≈ +0.0002), the spatiotemporal imputer rejected.
