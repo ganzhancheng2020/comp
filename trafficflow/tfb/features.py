@@ -160,11 +160,36 @@ def common_factors(panel: str, z: dict, net: pd.DataFrame) -> dict[str, np.ndarr
     F["cf_fl"] = np.broadcast_to(np.nanmean(r2, 2)[..., None], v.shape)
     F["cf_fl_loc"] = _window_mean(r2, 3)
     F["plat"] = np.broadcast_to(pl, v.shape)
+    if CONG:   # queued-speed plateau per link, measured on the same split's layer (scenario-specific, like `plat`)
+        pc = z["_platc"] if "_platc" in z else cong_plateau(panel, split_of(z))
+        F["plat_cong"] = np.broadcast_to(pc, v.shape)
+        F["cong_ratio"] = np.broadcast_to(pc / pl, v.shape)
     return F
+
+
+def cong_plateau(panel: str, split: str) -> np.ndarray:
+    """Per-link queued-speed plateau on the whole split's published layer (cached; train is built in 40-day chunks)."""
+    path = CACHE / f"{panel}_{split}_cong_plateau.npy"
+    if path.exists():
+        return np.load(path)
+    v = load(panel, split)["m_speed"]
+    out = cong_plateau_of(v, plateau(panel, split))
+    np.save(path, out)
+    return out
+
+
+def cong_plateau_of(v: np.ndarray, pl: np.ndarray, min_obs: int = 50) -> np.ndarray:
+    L = v.shape[2]
+    c = np.where(v < 0.5 * pl, v, np.nan).reshape(-1, L)
+    n = np.isfinite(c).sum(0)
+    with np.errstate(all="ignore"):
+        med = np.nanmedian(c, 0)
+    return np.where(n >= min_obs, med, np.nan).astype(np.float32)
 
 
 CF = __import__("os").environ.get("TFB_CF", "0") == "1"
 RAMP_RATIO = __import__("os").environ.get("TFB_RAMP_RATIO", "1") == "1"
+CONG = __import__("os").environ.get("TFB_CONG", "0") == "1"
 
 
 def ramp_profile(panel: str, split: str = "train") -> np.ndarray:
