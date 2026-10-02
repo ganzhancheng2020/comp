@@ -1060,3 +1060,6 @@ specialist, T2 and T4 unchanged. Expected Δ vs V12b ≈ +0.0016 (out-of-scenari
 within 0.0002). This is below the +0.003 submission rule, and no remaining lever adds enough to reach it (ongoing
 threshold 0.45 ≈ +0.0003; more T1 data/rounds ≈ +0.0002; onset and T4 closed). Because only submitted entries can be
 picked as finals, a final-candidate submission of V13 needs an explicit exception from the account holder.
+* **Account holder decision (2026-10-02 ~10:00 UTC): submit V13 as a final candidate** (one-off exception to the +0.003
+  rule; the rule stays for everything else). Pre-registered: Δ vs V12b ≈ +0.0016 (public noise ≈ ±0.003, so the public
+  result is a bug check only: below V12b − 0.004 → look for a pipeline error).
