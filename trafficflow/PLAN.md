@@ -1001,3 +1001,7 @@ Readings:
   fraction per link, cluster aggregates; `tfb/t2_onset_early_ab.py`), out of scenario: validation −0.0034 ± 0.0137,
   private +0.0049 ± 0.0104, train +0.0006; panels disagree (D12_I5_S −0.10 val / +0.04 pri). **Rejected.** With the
   prior-days check this closes the causal-scenario-evidence route for onset.
+* Ongoing CNN seed 3 (out of scenario, same windows): blend with 3 seeds − 2 seeds = +0.0002 ± 0.0006 → the
+  LightGBM + CNN blend is saturated; no more seeds (seed 4 stopped). Threshold 0.45 is +0.0022 ± 0.0008 again (third
+  independent evaluation), but worth ≈ +0.0003 total and plausibly an artefact of the sparser masked-layer inputs used
+  out of scenario; kept at 0.5.
