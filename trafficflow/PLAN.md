@@ -985,3 +985,13 @@ Readings:
 * V12b = V12 with T1 from `tfb/t1_predict.py` (cf speed with split plateau + train profiles; ramp gap specialist with the
   split's ramp and speed/flow profiles). T2/T4 unchanged from V12. Expected Δ vs V10a ≈ +0.0025 (T1 main) + 0.0005
   (gap) + T2 ≈ +0.002 + physics ≈ **+0.005**; vs V12 ≈ +0.006.
+* **V12b actual: 0.87900** (2026-10-02 00:03 UTC; Δ vs V10a **+0.0045**, expected ≈ +0.005; vs V12 +0.0058, expected
+  ≈ +0.006). New best; rank 18 (was 24). The out-of-scenario T1 evaluator predicted the online delta. Calibration rows:
+
+| Change | Local predicted Δtotal | Online Δtotal |
+|---|---|---|
+| V10a → V12 (T1 cf/train plateau, ramp gap/train profile; T2 origin row) | +0.004–0.0055 (in-scenario evaluators) | −0.0012 |
+| V12 → V12b (split-own plateau and profiles) | ≈ +0.006 (out-of-scenario T1 evaluator) | +0.0058 |
+
+  Rule from now on: a Task 1 change is judged on `t1_shift_eval` (out of scenario), never on train-day holdouts alone.
+* Final-selection plan: V12b (best public, best out-of-scenario evidence on every component) + one hedge (decided later).
