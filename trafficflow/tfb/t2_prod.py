@@ -104,6 +104,41 @@ def train_crop(data, epochs, seed, crop=64, bs=48, lr=2e-3):
     return net
 
 
+def train_resumable(data, epochs, seed, ckpt, lr=2e-3):
+    """t2_cnn.train_model (same batches, optimiser and schedule) with a checkpoint after every epoch, so a container
+    restart costs at most one epoch."""
+    import torch
+    import torch.nn as nn
+    from . import t2_cnn as C
+    torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    net = C.Net()
+    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
+    batches = [(p, i) for p, (X, Y, E) in data.items() for i in range(0, len(X), 48)]
+    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=epochs * len(batches))
+    lossf = nn.BCEWithLogitsLoss(reduction="none")
+    start = 0
+    if ckpt.exists():
+        st = torch.load(ckpt, weights_only=False)
+        net.load_state_dict(st["net"]); opt.load_state_dict(st["opt"]); sched.load_state_dict(st["sched"])
+        rng.bit_generator.state = st["rng"]; torch.set_rng_state(st["torch_rng"]); start = st["epoch"] + 1
+        print("resumed at epoch", start, flush=True)
+    for ep in range(start, epochs):
+        tot = 0.0
+        for bi in rng.permutation(len(batches)):
+            p, i = batches[bi]
+            X, Y, E = data[p]
+            x = torch.from_numpy(X[i:i + 48]); y = torch.from_numpy(Y[i:i + 48])
+            e = torch.from_numpy(E[i:i + 48].astype(np.float32))
+            loss = (lossf(net(x), y) * (0.2 + e)).mean()
+            opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+            tot += float(loss.detach())
+        torch.save({"net": net.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
+                    "rng": rng.bit_generator.state, "torch_rng": torch.get_rng_state(), "epoch": ep}, ckpt)
+        print(f"  epoch {ep} loss {tot / len(batches):.4f}", flush=True)
+    return net
+
+
 def train_cnn(seed, epochs):
     """Same recipe as the V10a CNN seeds (t2_final2): per-panel permutation with rng(100 + seed), t2_cnn.train_model.
     Never run next to a LightGBM job: OpenMP spin-waiting between the two makes torch ~30x slower on this machine."""
@@ -116,7 +151,7 @@ def train_cnn(seed, epochs):
         perm = rng.permutation(len(X))
         data[p] = (X[perm], Y[perm], E[perm])
     print("cnn data", {p: len(v[0]) for p, v in data.items()}, flush=True)
-    net = C.train_model(data, epochs=epochs, seed=seed)
+    net = train_resumable(data, epochs, seed, CACHE / f"t2p_cnn_vt_s{seed}.ckpt")
     torch.save(net.state_dict(), CACHE / f"t2p_cnn_vt_s{seed}.pt")
 
 
