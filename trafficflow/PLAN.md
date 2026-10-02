@@ -1063,3 +1063,12 @@ picked as finals, a final-candidate submission of V13 needs an explicit exceptio
 * **Account holder decision (2026-10-02 ~10:00 UTC): submit V13 as a final candidate** (one-off exception to the +0.003
   rule; the rule stays for everything else). Pre-registered: Δ vs V12b ≈ +0.0016 (public noise ≈ ±0.003, so the public
   result is a bug check only: below V12b − 0.004 → look for a pipeline error).
+* **V13 actual: 0.88107** (2026-10-02 09:56 UTC; Δ vs V12b **+0.0021**, expected +0.0016). New best; rank 17.
+
+| Change | Local predicted Δtotal | Online Δtotal |
+|---|---|---|
+| V12b → V13 (T1 main on all train targets) | +0.0016 (out-of-scenario T1 evaluator) | +0.0021 |
+
+Final-selection plan: **V13** (best public and best out-of-scenario evidence) + **V12b** (same pipeline with the
+smaller T1 models; nearly identical, so the hedge is weak) — or V10a as a structurally different hedge. Decide by
+2026-11-05; V13 dominates V10a on every out-of-scenario component, so the current pick is V13 + V12b.
