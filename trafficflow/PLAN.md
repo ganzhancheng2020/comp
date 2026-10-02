@@ -1100,3 +1100,11 @@ out-of-scenario +0.002 comes from the sparser masked-layer inputs (≈ 58% vs 84
 Rounds 6 and 7: two consecutive rounds without adoption, every component's remaining headroom below the noise →
 GOAL.md stop condition met. The bottom line in the goal statement (prize zone, top 3 ≈ 0.91+ public) is not reachable
 within the compliance rules on the evidence above.
+
+## Round 8 (2026-10-02): ensembling and a spatiotemporal imputer (gold-standard practices not yet used)
+* 8a, averaging LightGBM fits of different sizes, out of scenario (`tfb/t1_ens_eval.py`): 0.75·all-data + 0.25·1.2M →
+  speed 1.4765 / 1.4161 (vs 1.4861 / 1.4196), flow 29.640 / 29.630 (vs 29.695 / 29.679); both splits and both
+  channels better → adopted for the next bundle (≈ +0.0002; no training cost).
+* 8b, spatiotemporal CNN imputer (`tfb/t1_cnn.py`; traffic-imputation family GRIN / SAITS / Graph WaveNet): 36-slot ×
+  corridor windows, factorised dilated residual blocks, loss on input-masked cells; to be blended with LightGBM and
+  judged on the out-of-scenario hidden cells.
