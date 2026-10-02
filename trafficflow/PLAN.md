@@ -1139,3 +1139,25 @@ evidence, recent-day priors, calibration. The only data that reveal the cluster 
 post-horizon buffer (T+95 onwards), excluded by the Task 2 definition ("participants receive the previous 60 minutes"),
 the rule against recovering hidden labels, and the account holder's decision. **Within the compliance rules the prize
 zone is out of reach**; it becomes reachable only if the organizers rule that post-buffer observations are allowed.
+
+## Round 9 (2026-10-02): scenario timing evidence for onset — rejected
+Feasibility (`tfb/t2_onset_timing.py`, mined events with ≥ 1 earlier day): in 33 wrong-cluster events, the true cluster's
+activation time on earlier days of the split is closer to the event than the predicted cluster's in 16, farther in 4;
+only 7/163 correct events have another cluster > 30 min closer. As model features with the window-period availability
+(k ∈ 0..4 earlier days, `tfb/t2_onset_timing_ab.py`), out of scenario: private +0.0097 ± 0.0060, validation −0.0158 ±
+0.0088, train −0.0017 → **rejected** (the signal needs many earlier days; the Task 2 windows sit on days 1–5).
+
+## Organizer rulings and award procedure (forum, read 2026-10-02)
+* Topic 742068 (binding, to be added to the Rules): Task 2 may use released data with a timestamp **at or before T** and
+  nothing after it, in any file (ramp values inside the horizon and mainline observations after the buffer are out of
+  scope). Task 1 is offline: any released observation of the split at any time. → Our usage (origin row at T, ramp layer
+  inside blackouts for Task 1 only) is compliant; post-buffer read-back is definitively prohibited.
+* Topic 744187 (award procedure): (1) **registration e-mail to trafficflowbench@gmail.com by 2026-10-25 AoE**, subject
+  "Traffic Flow Bench Registration" (team name; Kaggle usernames, full names, affiliations, e-mails of all members;
+  primary contact) — only registered teams are eligible. (2) **Final package by 2026-11-10 AoE**, subject "Traffic Flow
+  Bench Final Package – [Team Name]": code reproducing the selected final submission (GitHub link or zip, README,
+  environment details, single entry script) + a PDF report on method, analysis and results across the four tasks.
+  (3) Awards: private leaderboard reviewed in order; organizers run the code, which must reproduce the selected final
+  submission within 1% of its private score; award score = 85% private + 15% report.
+  → Path to the prize zone for a compliant team: rank among the eligible teams that pass the reproduction check, plus the
+  report. Work items: a verified single-entry rebuild, a strong report, registration (account holder).
