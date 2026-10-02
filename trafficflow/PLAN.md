@@ -1072,3 +1072,24 @@ picked as finals, a final-candidate submission of V13 needs an explicit exceptio
 Final-selection plan: **V13** (best public and best out-of-scenario evidence) + **V12b** (same pipeline with the
 smaller T1 models; nearly identical, so the hedge is weak) — or V10a as a structurally different hedge. Decide by
 2026-11-05; V13 dominates V10a on every out-of-scenario component, so the current pick is V13 + V12b.
+
+## Round 6 (2026-10-02): split-own queued-speed plateau (`tfb/t1_cong_ab.py`)
+Per-link queued-speed medians move between splits (sd 1–6 km/h vs train), so `plat_cong` / `cong_ratio` from the split's
+own layer were tested like `plat` (paired, 300k rows/panel, out of scenario): speed 1.566 / 1.554 vs 1.558 / 1.550
+without, queued-cell RMSE 5.06 / 4.70 vs 4.86 / 4.66, 6/20 panels better → **rejected** (the queue-edge tails are about
+*whether* a cell is queued, not the queued level).
+
+## Headroom assessment after round 6 (stop-condition check, GOAL.md)
+| Component (weight) | Status | Remaining legit headroom (est.) |
+|---|---|---|
+| T1 state (0.35) | free flow at the noise floor in and out of scenario; capacity curve flattened (last doubling +0.0005, all train targets used); queued-edge tails resisted ramps and queued plateaus | ≤ +0.0005 |
+| T3 physics (0.15) | follows T1 (flow-driven N error); floor otherwise | ≤ +0.0005 |
+| T2 onset (0.15) | no causal signal for the cluster out of scenario: physics precursors, ramps, origin row, prior days, same-day early evidence all tested | ≈ 0 |
+| T2 ongoing (0.15) | origin row adopted; LightGBM + CNN blend saturated (3 vs 2 seeds +0.0002); threshold 0.45 +0.0003 (possibly an input artefact) | ≈ +0.0003–0.0005 |
+| T4 ODME (0.20) | L2 ≈ the organizers' ridge reference; 5 probes all worse | ≈ 0 |
+
+Every remaining candidate is below the public noise (≈ ±0.003) and below the 0.002 per-component bar. Rounds without
+adoption: 2 and 6; the capacity adoptions of rounds 3–5 have run out of data. **Conclusion: no obvious improvement left
+under the compliance rules.** Public: V13 0.88107 (rank 17), up from V10a 0.87446 (rank 24) at the start of the goal.
+The gap to #1 (0.924) is consistent with using observations after the post-horizon buffer for Task 2, which the rules and
+the account holder's decision exclude.
