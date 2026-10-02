@@ -147,8 +147,7 @@ def build(method: str = "l2", splits=("validation", "private")) -> pd.DataFrame:
 
 if __name__ == "__main__":
     import sys
-    from .data import ROOT
+    from .submit import OUT as outdir
     method = sys.argv[1] if len(sys.argv) > 1 else "l2"
-    outdir = ROOT / "out" / "tfb"
     outdir.mkdir(parents=True, exist_ok=True)
     build(method).to_csv(outdir / f"odme_{method}.csv", index=False)

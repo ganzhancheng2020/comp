@@ -146,6 +146,9 @@ if __name__ == "__main__":
     jobs = [(p, s) for p in panels() for s in SPLITS]
     if len(sys.argv) > 1:
         jobs = [j for j in jobs if j[0] in sys.argv[1:]]
+    jobs = [j for j in jobs if not (CACHE / f"{j[0]}_{j[1]}.npz").exists()]   # restartable
+    if not jobs:
+        raise SystemExit(0)
     with ProcessPoolExecutor(4) as ex:
         for (p, s), r in zip(jobs, ex.map(build, *zip(*jobs))):
             print(p, s, r.stat().st_size // 2**20, "MB", flush=True)

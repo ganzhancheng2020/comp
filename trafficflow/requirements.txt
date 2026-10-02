@@ -1,0 +1,8 @@
+# Versions used for the final submission (Python 3.11.15, Linux, CPU only)
+numpy==2.4.6
+pandas==3.0.6
+pyarrow==25.0.1
+lightgbm==4.7.0
+torch==2.14.1        # CPU build: pip install torch --index-url https://download.pytorch.org/whl/cpu
+scipy==1.17.1
+kaggle==2.2.4        # only for downloading the data and submitting

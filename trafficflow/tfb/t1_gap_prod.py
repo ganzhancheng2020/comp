@@ -1,5 +1,6 @@
 """Production gap specialist with ramp congestion-sensor features; patches the blackout-slot rows of a state file.
-Usage: TFB_CF=1 python -m tfb.t1_gap_prod <src_state.csv> <dst_state.csv> [rounds_speed] [rounds_flow]"""
+Usage: TFB_CF=1 python -m tfb.t1_gap_prod <src_state.csv> <dst_state.csv> [rounds_speed] [rounds_flow]
+       src "-" trains the models only (t1_predict applies them)."""
 import sys
 
 import lightgbm as lgb
@@ -28,6 +29,8 @@ if __name__ == "__main__":
     mf = lgb.train(PARAMS, lgb.Dataset(tr[cols], y["flow"]), rf)
     ms.save_model(str(CACHE / "t1p_gapr_speed.txt")); mf.save_model(str(CACHE / "t1p_gapr_flow.txt"))
     del tr
+    if src == "-":
+        raise SystemExit(0)
     st = pd.read_csv(OUT / src)
     off = 0
     for p in panels():

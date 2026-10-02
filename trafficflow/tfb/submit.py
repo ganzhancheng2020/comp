@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 import sys
 
 import numpy as np
@@ -9,7 +10,7 @@ import pandas as pd
 
 from .data import REL, ROOT, load, panels, targets
 
-OUT = ROOT / "out" / "tfb"
+OUT = Path(__import__("os").environ.get("TFB_OUT", ROOT / "out" / "tfb"))
 REF = ROOT / "tfb_ref"
 
 
