@@ -1093,3 +1093,10 @@ adoption: 2 and 6; the capacity adoptions of rounds 3–5 have run out of data. 
 under the compliance rules.** Public: V13 0.88107 (rank 17), up from V10a 0.87446 (rank 24) at the start of the goal.
 The gap to #1 (0.924) is consistent with using observations after the post-horizon buffer for Task 2, which the rules and
 the account holder's decision exclude.
+
+## Round 7 (2026-10-02): ongoing threshold, in scenario (`tfb/t2_vt_ab.py`, vt LightGBM, 2-fold, selector filter)
+thr 0.40 −0.0001 ± 0.0004, **0.45 +0.0004 ± 0.0003**, 0.55 −0.0011 ± 0.0003 → 0.5 is optimal in scenario; the
+out-of-scenario +0.002 comes from the sparser masked-layer inputs (≈ 58% vs 84% history coverage online). **Not adopted.**
+Rounds 6 and 7: two consecutive rounds without adoption, every component's remaining headroom below the noise →
+GOAL.md stop condition met. The bottom line in the goal statement (prize zone, top 3 ≈ 0.91+ public) is not reachable
+within the compliance rules on the evidence above.

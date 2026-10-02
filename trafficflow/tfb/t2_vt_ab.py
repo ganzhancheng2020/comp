@@ -25,10 +25,13 @@ ROUNDS = int(sys.argv[2]) if len(sys.argv) > 2 else 600
 PAR = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=100, feature_fraction=0.8,
            bagging_fraction=0.8, bagging_freq=1, verbose=-1, num_threads=4)
 DROP = ("y", "d", "T", "panel", "n_fut_total", "n_fut_out")
+THRS = (0.4, 0.45, 0.55)
+VARIANTS = tuple(__import__("os").environ.get("TFB_VT_VARIANTS", "vis,vt").split(","))
+IN_SCENARIO_ONLY = __import__("os").environ.get("TFB_VT_INSCEN_ONLY", "0") == "1"
 
 
 def windows(p):
-    w = pq.read_table(CACHE / "t2_ongoing_parts_vis" / f"{p}.parquet", columns=["d", "T"]).to_pandas().drop_duplicates()
+    w = pq.read_table(CACHE / "t2_ongoing_parts_vt" / f"{p}.parquet", columns=["d", "T"]).to_pandas().drop_duplicates()
     rng = np.random.default_rng(1)
     w["tr"] = rng.random(len(w)) < FRAC
     return w
@@ -59,7 +62,7 @@ def main():
     test = {p: W[p][~W[p].tr].sample(min(1500, int((~W[p].tr).sum())), random_state=0) for p in T2P}
     W = {p: pd.concat([W[p][W[p].tr], test[p]]) for p in T2P}   # only training windows + the test sample in memory
     res, full = {}, {}
-    for name in ("vis", "vt"):
+    for name in VARIANTS:
         X, y, K, feats = load_variant(name, W)
         pr = np.full(len(y), np.nan, np.float32)
         for f in (0, 1):
@@ -69,7 +72,8 @@ def main():
             pr[tem] = m.predict(X[tem])
             del m; gc.collect()
         trm = K.tr.to_numpy()
-        full[name] = (lgb.train(PAR, lgb.Dataset(X[trm], y[trm], feature_name=feats, categorical_feature=["pid"]), ROUNDS), feats)
+        if not IN_SCENARIO_ONLY:
+            full[name] = (lgb.train(PAR, lgb.Dataset(X[trm], y[trm], feature_name=feats, categorical_feature=["pid"]), ROUNDS), feats)
         K["pr"] = pr
         res[name] = K[~K.tr.to_numpy()]
         del X, y; gc.collect()
@@ -94,10 +98,12 @@ def main():
                 if gg is not None:
                     mp[gg.k.to_numpy() - 1, gg.link.to_numpy()] = gg.pr.to_numpy()
                 out[n] = iou(mp > 0.5, tru, e)
+                for thr in THRS:
+                    out[f"{n}_t{int(thr * 100)}"] = iou(mp > thr, tru, e)
             rows.append(out)
     bn = pd.read_parquet(CACHE / "t2_onset.parquet", columns=["panel", "link"]).drop_duplicates()
     rng = np.random.default_rng(0)
-    for p in T2P:
+    for p in (T2P if full else []):
         net = network(p); vc = 0.6 * net.free_speed_kmh.to_numpy(); cap = net.capacity_vph.to_numpy()
         bneck = sorted(bn[bn.panel == p].link)
         for s in ("validation", "private"):
@@ -123,7 +129,14 @@ def main():
         print(p, "out-of-scenario done", flush=True)
     r = pd.DataFrame(rows)
     r.to_csv(CACHE / "t2_vt_ab.csv", index=False)
-    print(r.groupby(["split", "panel"])[["pers", "vis", "vt"]].mean().groupby("split").mean().round(4))
+    cols = [c for c in r.columns if c not in ("panel", "split")]
+    print(r.groupby(["split", "panel"])[cols].mean().groupby("split").mean().T.round(4))
+    for n in VARIANTS:
+        for thr in THRS:
+            dd = r[f"{n}_t{int(thr * 100)}"] - r[n]
+            print(f"{n} thr {thr} - 0.5: {dd.mean():+.4f} ± {dd.std() / np.sqrt(len(dd)):.4f}")
+    if "vis" not in r or "vt" not in r:
+        return
     dd = r.vt - r.vis
     for s, g in dd.groupby(r.split):
         print(f"vt - vis [{s}]: {g.mean():+.4f} ± {g.std() / np.sqrt(len(g)):.4f}  (n={len(g)})")
