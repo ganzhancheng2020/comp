@@ -995,3 +995,9 @@ Readings:
 
   Rule from now on: a Task 1 change is judged on `t1_shift_eval` (out of scenario), never on train-day holdouts alone.
 * Final-selection plan: V12b (best public, best out-of-scenario evidence on every component) + one hedge (decided later).
+
+## Round 2 (2026-10-02)
+* Onset + same-day early evidence (masked layer before T−60: queued-slot count, slots since last queue, 3-hour queued
+  fraction per link, cluster aggregates; `tfb/t2_onset_early_ab.py`), out of scenario: validation −0.0034 ± 0.0137,
+  private +0.0049 ± 0.0104, train +0.0006; panels disagree (D12_I5_S −0.10 val / +0.04 pri). **Rejected.** With the
+  prior-days check this closes the causal-scenario-evidence route for onset.
