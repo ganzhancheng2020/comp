@@ -1028,3 +1028,5 @@ Out of scenario, true free-flow cells (y and interpolation > 0.85 plateau): mode
 time but not in space: RMSE 5–9; within-link queued speed sd ≈ 6 km/h in validation/private).
 Round 4 = capacity round: T1 1.2M rows/panel (float32), gap specialist 400k rows/panel, ongoing LightGBM 2000 rounds;
 bundle into V13 once the out-of-scenario evidence sums to ≥ +0.003.
+* Disk allowance ≈ 39 GB: the first 1.2M-row frame write failed (ENOSPC). Deleted superseded files (V12 per-task and
+  merged CSVs, finished A/B frames, the vis ongoing parts); keep ≥ 5 GB free before writing big frames.
