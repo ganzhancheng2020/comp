@@ -1044,3 +1044,8 @@ T1 main at 1.2M rows/panel, 5000 rounds (memory-lean: one target's columns, one 
 +0.0021 ≈ +0.0007; flow-driven N error −1.5% ≈ +0.0006 physics). The learning curve has not flattened (each doubling
 ≈ −0.04 speed, −0.2 flow out of scenario). The OOM on the first attempt came from building the flow matrix while the
 speed booster still held its dataset; each target now trains in a fresh process with only its columns.
+* Gap specialist at 400k cells/panel (≈ all synthetic-blackout cells; D7_I405_S has only 253k) vs 200k, out of scenario on
+  synthetic blackouts: speed 4.921/5.057 vs 4.923/5.095, flow 65.63/65.45 vs 65.69/65.27, 12/20 and 10/20 panels →
+  **not adopted** (no new information beyond 200k).
+* Round 5: T1 main on up to 2.4M rows/panel (≈ 20M rows; `tfb/t1_all.py`, matrix filled column-wise into one float32
+  array, frames per panel).
