@@ -80,8 +80,8 @@ def onset_windows(split, models, cands, w):
             if PRIOR:   # data before the window's day only (Task 2 ruling: timestamps <= T)
                 from .t2_onset_prior import adjust
                 T = T0.hour * 12 + T0.minute // 5
-                r = prior_ratio(es[0]["pc"], co_src, co, dix[T0.strftime("%Y-%m-%d")], T + 6)
-                es = [adjust(e, cm, r, PRIOR_B) for e in es]
+                ratio = prior_ratio(es[0]["pc"], co_src, co, dix[T0.strftime("%Y-%m-%d")], T + 6)
+                es = [adjust(e, cm, ratio, PRIOR_B) for e in es]
             out[r.window_id] = sorted(decode_pool(es, [1 - w, w]))
     return out
 
