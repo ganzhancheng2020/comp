@@ -1269,3 +1269,7 @@ V13 by component (out-of-scenario point estimates, public = validation / private
 * Task 1 main + physics: +0.0002 / +0.0009; gap: +0.0003 / +0.0003; onset: +0.0023 / +0.0012.
 * **Total ≈ +0.0028 public / +0.0024 private** (onset part rests on 5 flipped mined events; public noise ≈ ±0.003, one
   onset window ≈ 0.003). Below the +0.003 submission bar → needs the account holder's decision.
+* **Account holder decision (2026-10-03 ~08:30 UTC): submit V14 after the sanity checks** (one-off exception to the
+  +0.003 rule, as for V13). Sanity checks before upload: Task 4 identical to V13; Task 2 differs from V13 only in onset
+  windows (ongoing identical); Task 1 differs from V13 by a correction of the expected size (no NaN, speeds in range).
+  Final-selection plan if it holds: V14 + V13.
