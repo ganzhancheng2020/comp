@@ -1203,3 +1203,32 @@ cells ≈ 0.83M rows per split. Out of scenario (same E as every Round 1–8 T1 
 * Correcting with the *other* new scenario helps a little at 100 rounds and hurts beyond: the gain is scenario-specific
   (which links queue when, queued levels), i.e. exactly what the train-scenario model cannot know.
 * Next: more passes over the split's own cells (6 × 6%), then the same idea for the gap specialist.
+
+## Round 11 (2026-10-03): onset under scenario shift as label-shift adaptation (`tfb/t2_onset_prior.py`)
+Literature: online test-time adaptation with delayed feedback for traffic forecasting (ADCSD, arXiv 2401.04148; A2TTA,
+arXiv 2607.25875; PROCEED, KDD 2025) and label-shift correction of a frozen classifier's posteriors (Saerens et al. 2002;
+Alexandari et al., ICML 2020, EM + bias-corrected calibration). Why it matters: Task 2 has only 5 onset windows per
+corridor and split (40 per leaderboard), so one onset window moved from the wrong cluster (IoU ≈ 0.15) to the right one
+(≈ 0.95) is worth ≈ +0.003 total; the teams at 0.89–0.90 are 4–6 such windows ahead.
+* Correction: logit p'(c) = logit p(c) + b·log(rate_tgt/rate_src), rate_src = train share of days with an onset of
+  cluster c within ±W slots of the event, rate_tgt = Beta-shrunk share on the k most recent earlier days of the split
+  (k drawn from the real window-day distribution; data before the window's day only → compliant). Production model
+  and decoder (fit_general on t2_onset.parquet, decode_pool, w = 0); 93 validation + 103 private mined events.
+
+| W (slots) / a / b | private Δ onset IoU | validation Δ | events changed (up / down) |
+|---|---|---|---|
+| 6 / 1 / 0.5 | +0.0000 | −0.0005 | 3 / 4 |
+| **12 / 1 / 0.5** | **+0.0081** | **+0.0156** | **5 / 0** |
+| 18 / 1 / 0.5 | +0.0081 | +0.0156 | 5 / 0 |
+| 12 / 1 / 1.0 | +0.0081 | +0.0039 | 5 / 2 |
+| 24 / 1 / 0.5 | +0.0081 | +0.0000 | 2 / 0 |
+| 36 / 1 / 0.5 | 0 | 0 | 0 / 0 |
+
+* Chosen on validation (W 12, a 1, b 0.5), confirmed on private; pooled +0.0116 ± 0.0058 (2.0 SE), 2/2 changed panels
+  better in both splits, positive without the best panel → **adopted (weak evidence: 5 flips)**. Expected ≈ +0.0017
+  total (+0.0023 public, +0.0012 private by the per-split point estimates).
+* Diagnosis of the 196 mined events: 28 wrong-cluster (IoU 0; right ones 0.914). In 18 of the 19 fixable ones the true
+  cluster is the model's second choice, but the model is confident (0.74 vs 0.15) and the split's earlier-day rate only
+  mildly favours the truth (0.29 vs 0.22; train 0.36 vs 0.40), so only near-ties flip. 9 events queue entirely outside
+  the candidate links (new bottlenecks of the scenario); 7 of them never queued on earlier days (unpredictable), 2
+  (D12_I5_S, next to existing candidates) recur — too few to justify widening the candidate set.
