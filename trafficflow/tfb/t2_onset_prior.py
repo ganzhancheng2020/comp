@@ -18,6 +18,8 @@ Usage: python -m tfb.t2_onset_prior
 from __future__ import annotations
 
 import itertools
+import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -32,7 +34,8 @@ from .t2_onset_shift_ens import decode_pool
 from .t2_onset_timing import cluster_onsets
 
 SPLITS = ("validation", "private")
-GRID = dict(W=(6, 12), a=(1.0, 3.0), b=(0.5, 1.0))
+GRID = json.loads(os.environ.get("TFB_PRIOR_GRID", '{"W": [6, 12], "a": [1.0, 3.0], "b": [0.5, 1.0]}'))
+TAG = os.environ.get("TFB_PRIOR_TAG", "")
 EPS = 0.02
 
 
@@ -90,7 +93,7 @@ def main():
                 rows.append(rec)
         print(p, "done", flush=True)
     r = pd.DataFrame(rows)
-    r.to_csv(CACHE / "t2_onset_prior.csv", index=False)
+    r.to_csv(CACHE / f"t2_onset_prior{TAG}.csv", index=False)
     report(r)
 
 
