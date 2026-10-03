@@ -1180,3 +1180,26 @@ flow 29.692 / 29.668 against production 1.4861 / 1.4196 and 29.695 / 29.679 (12/
 randomness: the run was interrupted by a container restart during the speed model and resumed from its round-3500
 checkpoint, which restarts the bagging sequence. Measured cost on 4 cores: ≈ 6 h of compute (T2 ≈ 1.9 h, T1 main
 models ≈ 2.7 h, gap specialist 0.25 h, prediction ≈ 1 h), ≈ 6.5 GB of caches and outputs on top of the release.
+
+## Round 10 (2026-10-03): transductive Task 1 — correction trained on the split's own published cells (`tfb/t1_tx.py`)
+Gold-standard check not yet done (GOAL.md item 4: pseudo-labels / domain adaptation). Task 1 is offline and may use any
+released observation of its split (ruling 742068); its targets are Bernoulli cells, so hiding further random observed
+cells of the validation/private masked layer gives in-scenario rows of the same structure (features rebuilt without
+them, split plateau recomputed, label = published value). A correction booster (lr 0.03, init_score = V13 main model)
+is fitted per split; the evaluator's hidden cells E stay blank in every training frame. 2 passes × 6% of the observed
+cells ≈ 0.83M rows per split. Out of scenario (same E as every Round 1–8 T1 number; V13 = base):
+
+| private / validation | speed | flow/lane |
+|---|---|---|
+| V13 main model | 1.4861 / 1.4196 | 29.695 / 29.679 |
+| own split, 100 rounds | 1.4045 / 1.4052 | 29.565 / 29.593 |
+| own split, 300 rounds | 1.3992 / 1.4069 | 29.544 / 29.575 |
+| other split, 100 rounds | 1.4638 / 1.4126 | 29.662 / 29.680 |
+| other split, 1000 rounds | 1.4770 / 1.4255 | 29.732 / 29.771 |
+
+* own100, ΔS_state per panel: validation +0.00038 (4.2 SE, 9/10 better, +0.00034 without the best panel), private
+  +0.00186 (1.8 SE; 10/10 better; D7_I210_E alone +0.011, +0.00085 without it) → **passes the adoption rule**.
+  ≈ +0.0001 public / +0.0007 private total (with the flow-driven physics share).
+* Correcting with the *other* new scenario helps a little at 100 rounds and hurts beyond: the gain is scenario-specific
+  (which links queue when, queued levels), i.e. exactly what the train-scenario model cannot know.
+* Next: more passes over the split's own cells (6 × 6%), then the same idea for the gap specialist.

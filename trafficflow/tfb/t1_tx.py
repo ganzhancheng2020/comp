@@ -13,6 +13,7 @@ Usage: TFB_CF=1 TFB_SCEN=split python -m tfb.t1_tx [frames|fit|eval|repro]
 """
 import gc
 import json
+import os
 import sys
 
 import lightgbm as lgb
@@ -25,10 +26,13 @@ from .t1_shift_eval import hidden
 
 SPLITS = ("validation", "private")
 DIR = CACHE / "t1_tx"
-FRAC, SEEDS = 0.06, (1, 2)
+FRAC = 0.06
+SEEDS = tuple(int(x) for x in os.environ.get("TFB_TX_SEEDS", "1,2").split(","))
+TAG = "" if SEEDS == (1, 2) else str(len(SEEDS))   # more passes over the split's own cells
+OWN_ONLY = TAG != ""
 LR, ROUNDS, CKPTS = 0.03, 1500, (100, 300, 600, 1000, 1500)
 BASE = {"speed": "t1a_speed", "flow": "t1a_flow"}
-RES = CACHE / "t1_tx_res.json"
+RES = CACHE / f"t1_tx{TAG}_res.json"
 
 
 def _blank(z, d, t, l):
@@ -98,10 +102,10 @@ def fit():
         base = lgb.Booster(model_file=str(CACHE / f"{BASE[k]}.txt"))
         cols = base.feature_name()
         for s in SPLITS:
-            path = CACHE / f"t1tx_{k}_{s}.txt"
+            path = CACHE / f"t1tx{TAG}_{k}_{s}.txt"
             if path.exists():
                 continue
-            X = pd.concat([pd.read_parquet(f) for f in sorted(DIR.glob(f"H*_*_{s}.parquet"))], ignore_index=True)
+            X = pd.concat([pd.read_parquet(DIR / f"H{seed}_{p}_{s}.parquet") for seed in SEEDS for p in panels()], ignore_index=True)
             y, init = _target(X, k, base)
             ds = lgb.Dataset(X[cols].to_numpy(np.float32), y, init_score=init, feature_name=cols, free_raw_data=True)
             del X; gc.collect()
@@ -114,7 +118,7 @@ def fit():
 def evaluate():
     res = json.loads(RES.read_text()) if RES.exists() else {}
     B = {k: lgb.Booster(model_file=str(CACHE / f"{BASE[k]}.txt")) for k in BASE}
-    C = {(k, s): lgb.Booster(model_file=str(CACHE / f"t1tx_{k}_{s}.txt")) for k in BASE for s in SPLITS}
+    C = {(k, s): lgb.Booster(model_file=str(CACHE / f"t1tx{TAG}_{k}_{s}.txt")) for k in BASE for s in SPLITS}
     for s in SPLITS:
         for p in panels():
             key = f"{p}|{s}"
@@ -126,7 +130,7 @@ def evaluate():
             bs = X.speed_lin.to_numpy() + B["speed"].predict(X[B["speed"].feature_name()])
             bf = X.flow_lin.to_numpy() + B["flow"].predict(X[B["flow"].feature_name()]) * ln
             r = {"base": [float(np.mean((bs - ys) ** 2)), float(np.mean(((bf - yf) / ln) ** 2))]}
-            for src in SPLITS:
+            for src in ((s,) if OWN_ONLY else SPLITS):
                 tag = "own" if src == s else "cross"
                 for n in CKPTS:
                     cs = C[("speed", src)].predict(X[C[("speed", src)].feature_name()], num_iteration=n)
