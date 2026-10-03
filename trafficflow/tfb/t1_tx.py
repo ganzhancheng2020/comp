@@ -9,7 +9,7 @@ every training frame and in the split statistics, so E never enters a feature or
 
 Variants per target (speed, flow): correction trained on validation frames (M_val) or private frames (M_pri), each
 scored on both splits -> own split (transductive) and the other split (generic adaptation to a new scenario).
-Usage: TFB_CF=1 TFB_SCEN=split python -m tfb.t1_tx [frames|fit|eval]
+Usage: TFB_CF=1 TFB_SCEN=split python -m tfb.t1_tx [frames|fit|eval|repro]
 """
 import gc
 import json
@@ -138,6 +138,28 @@ def evaluate():
     report(res)
 
 
+def repro():
+    """Production all-data models (t1a) vs the ones rebuilt by reproduce.sh (copied to t1r_*), on the same cells E."""
+    out = CACHE / "t1_repro_res.json"
+    res = json.loads(out.read_text()) if out.exists() else {}
+    M = {n: {k: lgb.Booster(model_file=str(CACHE / f"{pre}_{k}.txt")) for k in BASE} for n, pre in (("prod", "t1a"), ("repro", "t1r"))}
+    for s in SPLITS:
+        for p in panels():
+            key = f"{p}|{s}"
+            if key in res:
+                continue
+            X = eval_frame(p, s)
+            ln = X.lanes.to_numpy()
+            r = {}
+            for n, m in M.items():
+                sp = X.speed_lin.to_numpy() + m["speed"].predict(X[m["speed"].feature_name()])
+                fl = X.flow_lin.to_numpy() + m["flow"].predict(X[m["flow"].feature_name()]) * ln
+                r[n] = [float(np.mean((sp - X.y_speed.to_numpy()) ** 2)), float(np.mean(((fl - X.y_flow.to_numpy()) / ln) ** 2))]
+            res[key] = r
+            out.write_text(json.dumps(res))
+    report(res)
+
+
 def report(res):
     d = pd.DataFrame([dict(panel=k.split("|")[0], split=k.split("|")[1], model=n, speed=v[0] ** .5, flow=v[1] ** .5)
                       for k, r in res.items() for n, v in r.items()])
@@ -149,4 +171,4 @@ def report(res):
 
 
 if __name__ == "__main__":
-    {"frames": frames, "fit": fit, "eval": evaluate}[sys.argv[1]]()
+    {"frames": frames, "fit": fit, "eval": evaluate, "repro": repro}[sys.argv[1]]()

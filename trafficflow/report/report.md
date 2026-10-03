@@ -207,5 +207,8 @@ L2 is optimal under it. Every alternative was worse online, by 0.11 to 0.30 S_OD
 ## 10. Reproducibility
 
 `trafficflow/reproduce.sh` is the single entry point. It rebuilds V13 from the Kaggle release and the official toolkit
-(CPU only: 4 cores, 15 GB RAM, about 8–9 hours). Every step caches its result and resumes after interruption.
+(CPU only: 4 cores, 15 GB RAM, about 6 hours). Every step caches its result and resumes after interruption.
+A clean verification run reproduced V13 with 14 of 174,000 Task 2 cells different, Task 4 identical and Task 1 within
+0.07 km/h and 2 veh/h/lane RMSE of the submitted values, a worst-case score change of ≈ 0.003 against the
+1% criterion (≈ 0.009).
 Versions are in `trafficflow/requirements.txt`. Code is under Apache-2.0. No external data and no pretrained models.

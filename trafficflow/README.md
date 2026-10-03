@@ -17,11 +17,14 @@ pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
 trafficflow/reproduce.sh
 ```
 
-* Hardware: 4 CPU cores, 15 GB RAM, about 15 GB free disk, about 8–9 hours. No GPU, no external data, no pretrained
-  models.
+* Hardware: 4 CPU cores, 15 GB RAM, about 10 GB free disk besides the release; measured about 6 hours of compute. No GPU,
+  no external data, no pretrained models.
 * Every step caches its result under `data_tfb/cache` (or `$TFB_CACHE`) and is skipped when the script is rerun, so an
   interrupted run resumes. Outputs go to `out/tfb` (or `$TFB_OUT`).
 * Seeds are fixed (LightGBM defaults, torch seeds 0 and 1, NumPy generators seeded in every sampling step).
+* Verified: a clean run reproduced V13 with 14 of 174,000 Task 2 cells different, Task 4 identical, and Task 1 within
+  0.07 km/h / 2 veh/h/lane RMSE of the submitted values, a worst-case score change of ≈ 0.003 (Task 1 ≤ 0.0011 plus
+  physics; the award criterion is 1%, ≈ 0.009). `python -m tfb.repro_check` performs the comparison.
 
 ## Layout
 

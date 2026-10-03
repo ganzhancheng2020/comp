@@ -1161,3 +1161,19 @@ only 7/163 correct events have another cluster > 30 min closer. As model feature
   submission within 1% of its private score; award score = 85% private + 15% report.
   → Path to the prize zone for a compliant team: rank among the eligible teams that pass the reproduction check, plus the
   report. Work items: a verified single-entry rebuild, a strong report, registration (account holder).
+
+## Reproduction verified (2026-10-03): `reproduce.sh` rebuilds V13 within the 1% award criterion
+Clean run of the single entry script in a separate cache/output (`scripts/verify_repro.sh`: `TFB_CACHE=data_tfb/cache_repro`,
+`TFB_OUT=out/repro`; only the raw-data npz caches shared), compared with the production V13 by `tfb/repro_check.py`:
+
+| Task | reproduced vs production |
+|---|---|
+| T1 (6,735,795 cells) | speed RMSE(prod − repro) 0.072 km/h, flow 2.0 veh/h/lane → \|ΔS_state\| ≤ 0.0031, \|ΔS_total\| ≤ 0.0011 by the triangle inequality, whatever the truth |
+| T2 (174,000 cells) | 14 cells differ (0.008%); 10,382 vs 10,384 queued |
+| T4 (70,708 paths) | identical |
+
+1% of the private score is ≈ 0.009, so even the worst-case bound (≈ 0.001 for T1, plus physics, which follows T1 flow
+≈ 0.002 in the worst case; total ≈ 0.003) is far inside the criterion. The T1 differences come from LightGBM bagging
+randomness: the run was interrupted by a container restart during the speed model and resumed from its round-3500
+checkpoint, which restarts the bagging sequence. Measured cost on 4 cores: ≈ 6 h of compute (T2 ≈ 1.9 h, T1 main
+models ≈ 2.7 h, gap specialist 0.25 h, prediction ≈ 1 h), ≈ 6.5 GB of caches and outputs on top of the release.

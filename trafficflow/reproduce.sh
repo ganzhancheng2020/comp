@@ -6,7 +6,7 @@
 # Inputs : data_tfb/kaggle_public/  (kaggle competitions download -c 2026-ieee-big-data-traffic-flow-bench; unzip)
 #          tfb_ref/                 (git clone https://github.com/jacky850/trafficflowbench-public tfb_ref), both at the
 #                                    repository root; or set TFB_REL / TFB_CACHE / TFB_OUT.
-# Machine: CPU only, 4 cores, 15 GB RAM, ~15 GB free disk; ~8-9 hours. Steps run strictly in sequence (never run torch
+# Machine: CPU only, 4 cores, 15 GB RAM, ~10 GB free disk; ~6 hours (measured). Steps run strictly in sequence (never run torch
 #          next to LightGBM: OpenMP spin-waiting slows torch ~30x). Every step caches its result and is skipped when
 #          rerun, so the script can be restarted after an interruption.
 set -e
