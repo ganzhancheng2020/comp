@@ -1,12 +1,13 @@
 #!/bin/sh
-# TrafficFlowBench 2026, team Steins — single entry script reproducing the selected final submission (V13, public 0.88107).
+# TrafficFlowBench 2026, team Steins — single entry script reproducing the two selected final submissions:
+#   V13 (public 0.88107) and V14a = V13 + transductive Task 1 corrections (public 0.88147).
 #
-#   ./reproduce.sh            # writes $TFB_OUT/sub_v13.zip (default out/tfb/sub_v13.zip at the repository root)
+#   ./reproduce.sh            # writes $TFB_OUT/sub_v13.zip and $TFB_OUT/sub_v14a.zip (default out/tfb/ at the repo root)
 #
 # Inputs : data_tfb/kaggle_public/  (kaggle competitions download -c 2026-ieee-big-data-traffic-flow-bench; unzip)
 #          tfb_ref/                 (git clone https://github.com/jacky850/trafficflowbench-public tfb_ref), both at the
 #                                    repository root; or set TFB_REL / TFB_CACHE / TFB_OUT.
-# Machine: CPU only, 4 cores, 15 GB RAM, ~10 GB free disk; ~6 hours (measured). Steps run strictly in sequence (never run torch
+# Machine: CPU only, 4 cores, 15 GB RAM, ~10 GB free disk; ~6 hours for V13 (measured) + ~1.5 hours for V14a. Steps run strictly in sequence (never run torch
 #          next to LightGBM: OpenMP spin-waiting slows torch ~30x). Every step caches its result and is skipped when
 #          rerun, so the script can be restarted after an interruption.
 set -e
@@ -35,4 +36,11 @@ step "8/9 Task 1 gap specialist (ramp congestion sensor)"
 [ -f "${TFB_CACHE:-../data_tfb/cache}/t1p_gapr_flow.txt" ] || python3 -m tfb.t1_gap_prod - - 3000 3500
 step "   Task 1 file (split-own plateaus and profiles)"; TFB_T1_MAIN=t1a python3 -m tfb.t1_predict v13
 step "9/9 merge into the Kaggle upload";               python3 -m tfb.make_sub state_v13.csv queue_v13.csv odme_l2.csv v13
+# ---- V14a: Task 1 corrections trained on each split's own published cells (Task 1 is offline; ruling 742068) ----
+step "10 Task 1 correction (6 passes x 6% of the split's observed cells, 300 rounds)"
+TFB_TX_PASSES=6 python3 -m tfb.t1_tx_prod frames && TFB_TX_PASSES=6 TFB_TX_ROUNDS=300 python3 -m tfb.t1_tx_prod fit
+step "11 gap correction (synthetic blackouts on the split's own layer, 4 passes, 200 rounds)"
+python3 -m tfb.t1_txgap_prod frames && python3 -m tfb.t1_txgap_prod fit
+step "12 Task 1 file V14a"; TFB_T1_MAIN=t1a TFB_T1_TX=1 TFB_T1_TXG=1 python3 -m tfb.t1_predict v14a
+step "13 merge V14a (Task 2 and Task 4 as V13)";       python3 -m tfb.make_sub state_v14a.csv queue_v13.csv odme_l2.csv v14a
 step "done"
