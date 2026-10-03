@@ -1285,3 +1285,16 @@ V13 by component (out-of-scenario point estimates, public = validation / private
 | Change | Local predicted Δtotal | Online Δtotal |
 |---|---|---|
 | V13 → V14 (T1 transductive corrections + onset prior correction) | +0.0028 (T1 +0.0005, onset +0.0023) | −0.0023 |
+* **V14a = V13 + the Task 1 transductive corrections only (V13's Task 2 and Task 4): 0.88147** (2026-10-03, account
+  holder approved; Δ vs V13 **+0.0004**, predicted +0.0005). New best public. V14 − V14a = −0.0027 isolates the onset
+  prior correction's public effect (predicted +0.0023): the attribution above holds, and the Task 1 evaluator is
+  calibrated again (third T1 delta predicted within 0.0005).
+
+| Change | Local predicted Δtotal | Online Δtotal |
+|---|---|---|
+| V13 → V14a (T1 transductive corrections, main + gap) | +0.0005 (public share; private +0.0012) | +0.0004 |
+| V14a → V14 (onset label-shift prior correction) | +0.0023 | −0.0027 |
+
+  Lesson: mined masked-layer onset events are a poor proxy for the real onset windows when a change acts on near-ties
+  (it touched 11% of real windows vs 2.5% of mined events); onset changes need many more flipped events before they are
+  trusted. **Final-selection plan: V14a + V13.**
