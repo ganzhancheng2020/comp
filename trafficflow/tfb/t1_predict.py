@@ -24,6 +24,11 @@ if __name__ == "__main__":
     ms = lgb.Booster(model_file=str(CACHE / f"{main}_speed.txt"))
     mf = lgb.Booster(model_file=str(CACHE / f"{main}_flow.txt"))
     print("main models", main, flush=True)
+    tx = __import__("os").environ.get("TFB_T1_TX", "0") == "1"   # Round 10: per-split transductive correction
+    if tx:
+        TX = {(k, s): lgb.Booster(model_file=str(CACHE / f"t1txp_{k}_{s}.txt")) for k in ("speed", "flow")
+              for s in ("validation", "private")}
+        print("transductive correction t1txp_*", flush=True)
     gs = lgb.Booster(model_file=str(CACHE / "t1p_gapr_speed.txt"))
     gf = lgb.Booster(model_file=str(CACHE / "t1p_gapr_flow.txt"))
     parts = []
@@ -34,6 +39,10 @@ if __name__ == "__main__":
                 df = panel_frame(p, s, with_truth=False)
                 sp = df.speed_lin.to_numpy() + ms.predict(df[ms.feature_name()], num_threads=4)
                 fl = df.flow_lin.to_numpy() + mf.predict(df[mf.feature_name()], num_threads=4) * df.lanes.to_numpy()
+                if tx:
+                    cs, cf = TX[("speed", s)], TX[("flow", s)]
+                    sp = sp + cs.predict(df[cs.feature_name()], num_threads=4)
+                    fl = fl + cf.predict(df[cf.feature_name()], num_threads=4) * df.lanes.to_numpy()
                 out = pd.DataFrame({"row": df.row.to_numpy(), "speed_kmh": np.clip(sp, 1.0, None),
                                     "flow_vph": np.clip(fl, 0.0, None)}).set_index("row").sort_index()
                 rows = gap_rows(p, s)

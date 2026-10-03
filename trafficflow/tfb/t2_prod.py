@@ -10,6 +10,7 @@ Usage:
   python -m tfb.t2_prod assemble <name>     # out/tfb/queue_<name>.csv
 """
 import gc
+import os
 import sys
 
 import lightgbm as lgb
@@ -241,4 +242,4 @@ if __name__ == "__main__":
     elif cmd == "cnn":
         train_cnn(int(sys.argv[2]), int(sys.argv[3]) if len(sys.argv) > 3 else 25)
     elif cmd == "assemble":
-        assemble(sys.argv[2])
+        assemble(sys.argv[2], tuple(int(x) for x in os.environ.get("TFB_CNN_SEEDS", "0,1,2,3").split(",")))

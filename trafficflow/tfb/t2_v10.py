@@ -20,6 +20,19 @@ from .t2_onset_shift_cal import probs
 from .t2_onset_shift_ens import decode_pool
 
 RAMP = os.environ.get("TFB_ONSET_RAMP", "0") == "1"   # onset with ramp-demand features (t2_onset_ramp)
+PRIOR = os.environ.get("TFB_ONSET_PRIOR", "0") == "1"  # Round 11: label-shift prior correction from earlier days
+PRIOR_W, PRIOR_A, PRIOR_B = 12, 1.0, 0.5
+
+
+def prior_ratio(pc, co_src, co, d, slot):
+    """rate_tgt / rate_src per cluster (t2_onset_prior): onsets within +-W slots on all earlier days of the split."""
+    from .t2_onset_prior import EPS, near
+    r = {}
+    for c in pc:
+        rs = near(co_src[c], slot, PRIOR_W).mean() + EPS
+        n = near(co[c][:d], slot, PRIOR_W).sum() if d else 0.0
+        r[c] = ((n + PRIOR_A * rs) / (d + PRIOR_A)) / rs
+    return r
 
 
 def onset_windows(split, models, cands, w):
@@ -36,6 +49,12 @@ def onset_windows(split, models, cands, w):
             zs = load(p, split)
             ridx = ramp_index(p, zs)
             di = {str(dd): i for i, dd in enumerate(zs["dates"].tolist())}
+        if PRIOR:
+            from .data import load
+            from .t2_onset_timing import cluster_onsets
+            zp = load(p, split)
+            co_src, co = cluster_onsets(load(p, "train"), vcut, cm), cluster_onsets(zp, vcut, cm)
+            dix = {str(dd): i for i, dd in enumerate(zp["dates"].tolist())}
         wi = pd.read_csv(REL / "task2" / p / split / "window_index.csv")
         h = pd.read_parquet(REL / "task2" / p / split / "window_history.parquet")
         for r in wi[wi.condition == "queue_onset"].itertuples():
@@ -58,6 +77,11 @@ def onset_windows(split, models, cands, w):
                 X = pd.concat([X.reset_index(drop=True),
                                ramp_feats_arr(zs["ramp_flow"][d, T - 12:T], mf, X.link.to_numpy(), ridx)], axis=1)
             es = [probs(m, X) for m in models]
+            if PRIOR:   # data before the window's day only (Task 2 ruling: timestamps <= T)
+                from .t2_onset_prior import adjust
+                T = T0.hour * 12 + T0.minute // 5
+                r = prior_ratio(es[0]["pc"], co_src, co, dix[T0.strftime("%Y-%m-%d")], T + 6)
+                es = [adjust(e, cm, r, PRIOR_B) for e in es]
             out[r.window_id] = sorted(decode_pool(es, [1 - w, w]))
     return out
 
