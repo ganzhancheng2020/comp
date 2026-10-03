@@ -165,9 +165,10 @@ def report(res):
                       for k, r in res.items() for n, v in r.items()])
     print(d.groupby(["model", "split"])[["speed", "flow"]].mean().unstack("split").round(4).to_string())
     w = d.pivot_table(index=["panel", "split"], columns="model", values=["speed", "flow"])
-    for n in sorted(set(d.model) - {"base"}):
-        print(n, "panels better: speed", int((w["speed"][n] < w["speed"]["base"]).sum()), "flow",
-              int((w["flow"][n] < w["flow"]["base"]).sum()), "/", len(w))
+    ref = "base" if "base" in set(d.model) else "prod"
+    for n in sorted(set(d.model) - {ref}):
+        print(n, f"panels better than {ref}: speed", int((w["speed"][n] < w["speed"][ref]).sum()), "flow",
+              int((w["flow"][n] < w["flow"][ref]).sum()), "/", len(w))
 
 
 if __name__ == "__main__":

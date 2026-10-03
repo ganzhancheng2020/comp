@@ -1173,7 +1173,10 @@ Clean run of the single entry script in a separate cache/output (`scripts/verify
 | T4 (70,708 paths) | identical |
 
 1% of the private score is ≈ 0.009, so even the worst-case bound (≈ 0.001 for T1, plus physics, which follows T1 flow
-≈ 0.002 in the worst case; total ≈ 0.003) is far inside the criterion. The T1 differences come from LightGBM bagging
+≈ 0.002 in the worst case; total ≈ 0.003) is far inside the criterion. **Realistic difference:** on the
+out-of-scenario hidden cells (`python -m tfb.t1_tx repro`) the reproduced main models score speed 1.4854 / 1.4199 and
+flow 29.692 / 29.668 against production 1.4861 / 1.4196 and 29.695 / 29.679 (12/20 and 10/20 panel-splits better) →
+ΔS_total ≈ 0.00001. The T1 differences come from LightGBM bagging
 randomness: the run was interrupted by a container restart during the speed model and resumed from its round-3500
 checkpoint, which restarts the bagging sequence. Measured cost on 4 cores: ≈ 6 h of compute (T2 ≈ 1.9 h, T1 main
 models ≈ 2.7 h, gap specialist 0.25 h, prediction ≈ 1 h), ≈ 6.5 GB of caches and outputs on top of the release.

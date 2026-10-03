@@ -24,7 +24,8 @@ trafficflow/reproduce.sh
 * Seeds are fixed (LightGBM defaults, torch seeds 0 and 1, NumPy generators seeded in every sampling step).
 * Verified: a clean run reproduced V13 with 14 of 174,000 Task 2 cells different, Task 4 identical, and Task 1 within
   0.07 km/h / 2 veh/h/lane RMSE of the submitted values, a worst-case score change of ≈ 0.003 (Task 1 ≤ 0.0011 plus
-  physics; the award criterion is 1%, ≈ 0.009). `python -m tfb.repro_check` performs the comparison.
+  physics; the award criterion is 1%, ≈ 0.009); on held-out cells the rebuilt models score the same as the
+  submitted ones (Δ ≈ 0.00001). `python -m tfb.repro_check` performs the comparison.
 
 ## Layout
 
