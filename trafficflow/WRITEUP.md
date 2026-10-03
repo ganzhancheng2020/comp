@@ -1,6 +1,6 @@
 # TrafficFlowBench 2026 — team Steins: solution write-up (draft)
 
-Public leaderboard: 0.88107 (V13). Code: `trafficflow/tfb/` (Apache-2.0), one-command rebuild: `trafficflow/build_v13.sh`.
+Public leaderboard: 0.88107 (V13). Code: `trafficflow/tfb/` (Apache-2.0), single entry script: `trafficflow/reproduce.sh`.
 CPU only (4 cores, 15 GB RAM). Full experiment log with every accepted and rejected idea: `trafficflow/PLAN.md`.
 
 ## Guiding principle: validation and private are new scenarios
@@ -25,7 +25,8 @@ queued-speed levels and ramp demand change, and bottleneck clusters switch on or
   link it feeds is queued, and the ramp layer stays published inside the 90-minute mainline blackout after each Task 2
   origin. A gap specialist trained on synthetic blackouts uses it (gap speed RMSE 6.3 → 4.9 out of scenario).
 * Capacity: the out-of-scenario learning curve kept improving up to all train target cells (≈ 20M rows; matrix filled
-  column-wise into one float32 array). Final: 0.75 · all-data model + 0.25 · 1.2M-row model.
+  column-wise into one float32 array). V13 uses the all-data model (a 0.75 · all-data + 0.25 · 1.2M-row average was
+  measured afterwards at ≈ +0.0002 out of scenario, below the submission bar).
 
 ## Task 2 (queue forecasting)
 * Onset: queues switch on as whole blocks at the last horizon step; a cluster model + in-cluster link model with
