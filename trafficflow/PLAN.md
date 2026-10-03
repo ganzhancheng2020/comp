@@ -1273,3 +1273,15 @@ V13 by component (out-of-scenario point estimates, public = validation / private
   +0.003 rule, as for V13). Sanity checks before upload: Task 4 identical to V13; Task 2 differs from V13 only in onset
   windows (ongoing identical); Task 1 differs from V13 by a correction of the expected size (no NaN, speeds in range).
   Final-selection plan if it holds: V14 + V13.
+* **V14 actual: 0.87880** (2026-10-03 12:31 UTC; Δ vs V13 **−0.0023**, pre-registered +0.0028). Sanity checks had
+  passed (Task 4 identical; Task 2: 24 cells in 9 onset windows, ongoing identical; Task 1: no NaN, extremes as V13,
+  correction rms 0.55 km/h). Attribution (no probes): the onset prior correction changed 5 public (validation) onset
+  windows — a net −0.6 IoU over them explains the whole drop (one window ≈ 0.00375 per IoU unit) — and it changed 11%
+  of the real onset windows against 2.5% of the mined events it was validated on, so the mined-event evidence did not
+  represent the real windows. The Task 1 corrections were judged by the evaluator that predicted the last two Task 1
+  deltas within 0.0005, and their expected public share is +0.0005. **Onset prior correction withdrawn** (switch stays
+  off by default).
+
+| Change | Local predicted Δtotal | Online Δtotal |
+|---|---|---|
+| V13 → V14 (T1 transductive corrections + onset prior correction) | +0.0028 (T1 +0.0005, onset +0.0023) | −0.0023 |
