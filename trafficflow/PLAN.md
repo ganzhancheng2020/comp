@@ -1202,7 +1202,18 @@ cells ≈ 0.83M rows per split. Out of scenario (same E as every Round 1–8 T1 
   ≈ +0.0001 public / +0.0007 private total (with the flow-driven physics share).
 * Correcting with the *other* new scenario helps a little at 100 rounds and hurts beyond: the gain is scenario-specific
   (which links queue when, queued levels), i.e. exactly what the train-scenario model cannot know.
-* Next: more passes over the split's own cells (6 × 6%), then the same idea for the gap specialist.
+* More passes (6 × 6% ≈ 2.5M rows per split), out of scenario:
+
+| 6 passes, private / validation | speed | flow/lane | ΔS_state val (SE, panels) | ΔS_state pri (SE, panels) |
+|---|---|---|---|---|
+| own 100 rounds | 1.4060 / 1.4032 | 29.537 / 29.569 | +0.00044 (4.6, 9/10) | +0.00185 (1.8, 10/10) |
+| **own 300 rounds** | **1.3971 / 1.3998** | **29.501 / 29.549** | **+0.00053 (3.5, 9/10)** | **+0.00207 (2.0, 10/10)** |
+| own 600 rounds | 1.3929 / 1.3995 | 29.491 / 29.539 | +0.00054 (3.2, 8/10) | +0.00217 (2.0, 10/10) |
+| own 1500 rounds | 1.3898 / 1.3964 | 29.497 / 29.552 | +0.00060 (2.8, 8/10) | +0.00223 (2.1, 10/10) |
+
+  Production choice (pre-set: most rounds keeping ≥ 9/10 panels in both splits): **6 passes, 300 rounds**
+  (`tfb/t1_tx_prod.py`, applied by `TFB_T1_TX=1 python -m tfb.t1_predict`). ≈ +0.0002 public / +0.0009 private total
+  including the flow-driven physics share. Without the best panel: +0.00043 / +0.00104.
 
 ## Round 11 (2026-10-03): onset under scenario shift as label-shift adaptation (`tfb/t2_onset_prior.py`)
 Literature: online test-time adaptation with delayed feedback for traffic forecasting (ADCSD, arXiv 2401.04148; A2TTA,
