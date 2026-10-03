@@ -8,8 +8,9 @@ subtitle: "IEEE BigData Cup 2026 — TrafficFlowBench · Team Steins · final su
 Validation (March) and private (April) are **new traffic scenarios**: the scenario seed is redrawn, so per-link free-flow
 speeds, queued-speed levels, ramp demand and the bottlenecks that activate all change. A model that is validated only on
 held-out training days cannot see this shift. Our solution is built around one discipline: **every change is accepted
-only on out-of-scenario evidence**, measured on the published validation/private layers. We use them for evaluation only,
-never for fitting a prediction. With that discipline in place, three structural findings carried most of the gain:
+only on out-of-scenario evidence**, measured on the published validation/private layers (for Task 1, which is offline, the final model also
+adapts to them; Task 2 never sees data after its origin). With that discipline in place, four structural findings
+carried most of the gain:
 
 1. **Measurement noise has a corridor-wide common mode.** The free-flow branch of the generator's fundamental diagram is
    flat, so a free-flowing speed minus its link plateau is pure measurement noise. That noise shares a component across
@@ -247,5 +248,6 @@ L2 is optimal under it. Every alternative was worse online, by 0.11 to 0.30 S_OD
 A clean verification run reproduced V13 with 14 of 174,000 Task 2 cells different, Task 4 identical and Task 1 within
 0.07 km/h and 2 veh/h/lane RMSE of the submitted values, a worst-case score change of ≈ 0.003 against the
 1% criterion (≈ 0.009); on the out-of-scenario hidden cells the rebuilt models score the same as the submitted ones
-(Δ ≈ 0.00001).
+(Δ ≈ 0.00001). V14a's rebuild stays within 0.12 km/h and 2.3 veh/h/lane RMSE of the submitted Task 1 values (worst
+case ≈ 0.004 in total).
 Versions are in `trafficflow/requirements.txt`. Code is under Apache-2.0. No external data and no pretrained models.

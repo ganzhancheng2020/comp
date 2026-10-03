@@ -1298,3 +1298,7 @@ V13 by component (out-of-scenario point estimates, public = validation / private
   Lesson: mined masked-layer onset events are a poor proxy for the real onset windows when a change acts on near-ties
   (it touched 11% of real windows vs 2.5% of mined events); onset changes need many more flipped events before they are
   trusted. **Final-selection plan: V14a + V13.**
+* **V14a reproduction verified** (`scripts/verify_v14a.sh`: reproduce.sh steps 10–13 in the clean reproduction cache):
+  Task 2 the same 14/174,000 cells as V13's reproduction, Task 4 identical, Task 1 speed RMSE(submitted − rebuilt)
+  0.122 km/h, flow 2.27 veh/h/lane → |ΔS_total| ≤ 0.0015 from Task 1 (+ physics; worst case ≈ 0.004 in total), far
+  inside the 1% criterion (≈ 0.009). The correction amplifies the small base-model differences of the rebuild (V13: 0.072).
