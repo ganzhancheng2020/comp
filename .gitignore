@@ -9,3 +9,4 @@ t1_*.log
 t2_*.log
 /*.log
 /tfb_ref
+logs/
