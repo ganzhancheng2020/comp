@@ -1,6 +1,6 @@
 ---
 title: "Scenario-Robust Traffic State Reconstruction and Queue Forecasting"
-subtitle: "IEEE BigData Cup 2026 — TrafficFlowBench · Team Steins · final submission V13 (public leaderboard 0.88107)"
+subtitle: "IEEE BigData Cup 2026 — TrafficFlowBench · Team Steins · final submissions V14a (public 0.88147) and V13 (0.88107)"
 ---
 
 ## 1. Summary
@@ -20,9 +20,14 @@ never for fitting a prediction. With that discipline in place, three structural 
 3. **Published layers carry sensors that were overlooked.** The masked layer publishes the Task 2 origin row T at about
    58% coverage. And on-ramp flow collapses while the mainline link it feeds is queued, while the ramp layer stays
    published inside the 90-minute mainline blackouts that follow each Task 2 origin.
+4. **Task 1 can learn the new scenario from its own published cells.** Task 1 targets are Bernoulli-masked cells, so
+   hiding further observed cells of the validation/private layer gives in-scenario training rows with the same
+   structure. A correction booster fitted on them (test-time adaptation, frozen backbone) beats the train-only model on
+   19/20 panel-splits.
 
-From the inherited pipeline (public 0.87446) the final submission reaches **0.88107**. Our out-of-scenario evaluators
-predicted the last two online deltas to within 0.0005.
+From the inherited pipeline (public 0.87446) the final submission reaches **0.88147**. Our out-of-scenario Task 1
+evaluator predicted the last three Task 1 deltas to within 0.0005; Section 6.3 reports the one change it could not
+judge, and what it cost.
 
 ## 2. Tasks, rules and validation
 
@@ -52,6 +57,8 @@ changed panels must improve in both splits. The gain must survive dropping the b
 | V10a → V12 | +0.004 … +0.0055 | **−0.0012** | train-day holdout (blind to the scenario shift) |
 | V12 → V12b | +0.006 | **+0.0058** | out-of-scenario hidden cells |
 | V12b → V13 | +0.0016 | **+0.0021** | out-of-scenario hidden cells |
+| V13 → V14a | +0.0005 | **+0.0004** | out-of-scenario hidden cells |
+| V14a → V14 (onset prior correction) | +0.0023 | **−0.0027** | mined masked-layer onset events (5 flips) |
 
 The V12 miss is the reason for the protocol. Its Task 1 changes were right in the training scenario and wrong in the new
 ones (Section 4.2). The out-of-scenario evaluator caught this, and its predictions now match the online deltas.
@@ -114,7 +121,26 @@ queued in time but not in space have RMSE 5–9.
 |---|---|---|
 | without ramps | 6.32 / 6.50 | 68.3 / 68.9 |
 | ramps, **train** ramp profile (V12) | 9.78 / 9.83 | 114 / 110 |
-| ramps, split-own ramp + speed/flow profiles (V12b, V13) | **4.92 / 5.10** | **65.7 / 65.3** |
+| ramps, split-own ramp + speed/flow profiles (V12b, V13) | 4.92 / 5.10 | 65.7 / 65.3 |
+| + transductive correction (V14a) | **4.50 / 4.66** | **60.0 / 60.0** |
+
+### 4.3 Transductive correction (V14a)
+
+Task 1 is offline, so the split's own published cells are legitimate training data (forum ruling 742068). We hide 6% of
+the observed cells of the split (6 passes), rebuild every feature and split statistic without them, and fit a
+correction booster (learning rate 0.03, 300 rounds) with the frozen all-data model's prediction as the initial score.
+The gap specialist gets the same treatment on synthetic blackouts placed on the split's own layer (200 rounds). The
+evaluator's hidden cells stay blank in every training frame.
+
+| Main model, out of scenario | speed | flow | panels better (val / pri) |
+|---|---|---|---|
+| V13 (all train targets) | 1.486 / 1.420 | 29.69 / 29.68 | |
+| correction from the **other** new split, 100 rounds | 1.464 / 1.413 | 29.66 / 29.68 | |
+| correction from the split itself, 2 passes | 1.399 / 1.407 | 29.54 / 29.58 | 9 / 10 |
+| **correction from the split itself, 6 passes (V14a)** | **1.397 / 1.400** | **29.50 / 29.55** | **9 / 10** |
+
+A correction learned on the other new scenario barely helps and degrades with more rounds; the gain is
+scenario-specific (which links queue when, at which level), exactly what a train-only model cannot know.
 
 ## 5. Task 3 — physical consistency
 
@@ -170,6 +196,14 @@ component sat at a generous ceiling simultaneously:
 
 Then the public prize zone (0.917) would still need onset IoU ≥ 0.872 in an unseen scenario.
 
+**A label-shift correction that did not transfer.** Only 5 onset windows per corridor and split are scored, so one
+window moved to the right cluster is worth ≈ 0.003. Following label-shift adaptation (Saerens et al.; Alexandari et al.)
+and delayed-feedback test-time adaptation, we reweighted the cluster odds by the split's earlier-day activation rate near
+the event time relative to train (earlier days only, compliant). On 196 mined events it flipped 5 near-ties, all
+correctly (+0.012 IoU, 2.0 SE). Online it cost 0.0027: it changed 11% of the real onset windows against 2.5% of the
+mined events, so the mined events did not represent the real windows. We withdrew it; onset changes now need many
+more flipped events before they are trusted.
+
 ## 7. Task 4 — OD and path-flow estimation
 
 The link counts are noise-free. We take the L2 projection of the split's own weak prior b onto {A f = c, f ≥ 0}, solved
@@ -202,12 +236,14 @@ L2 is optimal under it. Every alternative was worse online, by 0.11 to 0.30 S_OD
 | V10a | origin-row-free onset refit | 0.87446 |
 | V12 | common mode + ramp gap (train statistics) + origin row | 0.87324 |
 | V12b | split-own plateaus and profiles | 0.87900 |
-| **V13** | **Task 1 on all train targets** | **0.88107** |
+| V13 | Task 1 on all train targets | 0.88107 |
+| V14 | + transductive Task 1 corrections + onset prior correction | 0.87880 |
+| **V14a** | **V13 + transductive Task 1 corrections** | **0.88147** |
 
 ## 10. Reproducibility
 
-`trafficflow/reproduce.sh` is the single entry point. It rebuilds V13 from the Kaggle release and the official toolkit
-(CPU only: 4 cores, 15 GB RAM, about 6 hours). Every step caches its result and resumes after interruption.
+`trafficflow/reproduce.sh` is the single entry point. It rebuilds V13 and then V14a from the Kaggle release and the official toolkit
+(CPU only: 4 cores, 15 GB RAM, about 6 hours for V13 plus 1.5 hours for V14a). Every step caches its result and resumes after interruption.
 A clean verification run reproduced V13 with 14 of 174,000 Task 2 cells different, Task 4 identical and Task 1 within
 0.07 km/h and 2 veh/h/lane RMSE of the submitted values, a worst-case score change of ≈ 0.003 against the
 1% criterion (≈ 0.009); on the out-of-scenario hidden cells the rebuilt models score the same as the submitted ones
