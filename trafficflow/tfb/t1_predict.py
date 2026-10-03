@@ -29,6 +29,11 @@ if __name__ == "__main__":
         TX = {(k, s): lgb.Booster(model_file=str(CACHE / f"t1txp_{k}_{s}.txt")) for k in ("speed", "flow")
               for s in ("validation", "private")}
         print("transductive correction t1txp_*", flush=True)
+    txg = __import__("os").environ.get("TFB_T1_TXG", "0") == "1"   # Round 10b: per-split gap correction
+    if txg:
+        TXG = {(k, s): lgb.Booster(model_file=str(CACHE / f"t1txgp_{k}_{s}.txt")) for k in ("speed", "flow")
+               for s in ("validation", "private")}
+        print("transductive gap correction t1txgp_*", flush=True)
     gs = lgb.Booster(model_file=str(CACHE / "t1p_gapr_speed.txt"))
     gf = lgb.Booster(model_file=str(CACHE / "t1p_gapr_flow.txt"))
     parts = []
@@ -50,8 +55,14 @@ if __name__ == "__main__":
                     FE.PROF_SCEN = True     # gap specialist: split speed/flow profiles help out of scenario
                     g = panel_frame(p, s, with_truth=False, row_filter=set(rows.tolist()), ramps=True)
                     FE.PROF_SCEN = False
-                    out.loc[g.row.to_numpy(), "speed_kmh"] = np.clip(g.speed_lin.to_numpy() + gs.predict(g[gs.feature_name()]), 1.0, None)
-                    out.loc[g.row.to_numpy(), "flow_vph"] = np.clip(g.flow_lin.to_numpy() + gf.predict(g[gf.feature_name()]) * g.lanes.to_numpy(), 0.0, None)
+                    gsp = g.speed_lin.to_numpy() + gs.predict(g[gs.feature_name()])
+                    gfl = g.flow_lin.to_numpy() + gf.predict(g[gf.feature_name()]) * g.lanes.to_numpy()
+                    if txg:
+                        cs, cf = TXG[("speed", s)], TXG[("flow", s)]
+                        gsp = gsp + cs.predict(g[cs.feature_name()])
+                        gfl = gfl + cf.predict(g[cf.feature_name()]) * g.lanes.to_numpy()
+                    out.loc[g.row.to_numpy(), "speed_kmh"] = np.clip(gsp, 1.0, None)
+                    out.loc[g.row.to_numpy(), "flow_vph"] = np.clip(gfl, 0.0, None)
                 out.to_parquet(f)
                 print("done", p, s, len(out), "gap rows", len(rows), flush=True)
             o = pd.read_parquet(f)
