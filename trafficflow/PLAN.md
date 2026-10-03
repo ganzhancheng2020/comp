@@ -1243,3 +1243,29 @@ corridor and split (40 per leaderboard), so one onset window moved from the wron
   mildly favours the truth (0.29 vs 0.22; train 0.36 vs 0.40), so only near-ties flip. 9 events queue entirely outside
   the candidate links (new bottlenecks of the scenario); 7 of them never queued on earlier days (unpredictable), 2
   (D12_I5_S, next to existing candidates) recur — too few to justify widening the candidate set.
+
+### Round 10b: transductive gap specialist (`tfb/t1_txgap.py`): adopted
+Synthetic blackouts (all links blank for 18 slots, one per day per pass, 4 passes) on the split's own layer, kept apart
+from the evaluator's blackouts; correction on top of `t1p_gapr_*`. Out of scenario (evaluator's synthetic blackouts):
+
+| private / validation | gap speed | gap flow/lane | panels better (val / pri, speed–flow) |
+|---|---|---|---|
+| production gap specialist | 4.923 / 5.095 | 65.69 / 65.27 | |
+| own 100 rounds | 4.541 / 4.712 | 60.92 / 60.66 | 10–9 / 10–9 |
+| **own 200 rounds** | **4.501 / 4.658** | **60.03 / 60.02** | **9–9 / 10–10** |
+| own 400 rounds | 4.472 / 4.622 | 59.42 / 59.77 | 9–8 / 10–10 |
+| other split, 100 rounds | 4.694 / 4.758 | 62.32 / 60.10 | |
+
+* The other split's blackouts help almost as much: part of the gain is the train → validation/private blackout mismatch,
+  not the scenario. The evaluator's blackouts sit at random times (7% queued cells) while real ones follow Task 2 origins
+  (queue moments); by subset (400 rounds): free cells 3.93 → 3.34 / 3.96 → 3.47, queued cells 13.32 → 13.20 (5/10) /
+  14.98 → 14.10 (8/10) → no harm where real blackouts concentrate. Production: 200 rounds (pre-set rule), ≈ +0.0003
+  total (gap cells are 1.7% of the targets).
+
+### V14 candidate (pre-registered 2026-10-03, before any submission)
+V14 = V13 + Round 10 Task 1 correction (6 passes, 300 rounds) + Round 10b gap correction (200 rounds) + Round 11 onset
+prior correction (W 12, a 1, b 0.5). Build: `trafficflow/scripts/build_v14.sh` (after `reproduce.sh`). Expected Δ vs
+V13 by component (out-of-scenario point estimates, public = validation / private):
+* Task 1 main + physics: +0.0002 / +0.0009; gap: +0.0003 / +0.0003; onset: +0.0023 / +0.0012.
+* **Total ≈ +0.0028 public / +0.0024 private** (onset part rests on 5 flipped mined events; public noise ≈ ±0.003, one
+  onset window ≈ 0.003). Below the +0.003 submission bar → needs the account holder's decision.
